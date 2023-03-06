@@ -236,6 +236,7 @@ void Scan(const Slice& target, int& len, std::vector<std::string>& keys,
   void GetBlobValue() {
     assert(iter_->status().ok());
 
+
     BlobIndex index;
     status_ = DecodeInto(iter_->value(), &index);
     if (!status_.ok()) {

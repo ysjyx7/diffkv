@@ -286,7 +286,7 @@ bool TitanTableBuilder::ShouldMerge(
   // level
   // 2. Blob file is marked by GC or range merge
   return file != nullptr && file->file_type() == kSorted && 
-           ((target_level_>=merge_level_ && static_cast<int>(file->file_level()) < target_level_) ||
+           ((target_level_>=merge_level_ && static_cast<int>(file->file_level()) < target_level_)||
             file->file_state() == BlobFileMeta::FileState::kToMerge||file->file_state() == BlobFileMeta::FileState::kToGC);
 }
 

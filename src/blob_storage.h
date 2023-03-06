@@ -15,6 +15,23 @@ namespace titandb {
 
 // Provides methods to access the blob storage for a specific
 // column family.
+
+struct FileDataDiffKV{
+  double discardable_Ratio;
+  uint64_t file_size;
+  uint64_t discardable_size;
+  bool operator<(const FileDataDiffKV&a)const{
+    if(discardable_Ratio!=a.discardable_Ratio){
+      return discardable_Ratio<a.discardable_Ratio;
+    }else if(file_size!=a.file_size){
+      return file_size<a.file_size;
+    }else{
+      return discardable_size<a.discardable_size;
+    }
+  }
+};
+
+
 class BlobStorage {
  public:
   BlobStorage(const BlobStorage& bs) : destroyed_(false) {

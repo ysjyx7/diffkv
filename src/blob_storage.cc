@@ -2,11 +2,14 @@
 #include "atomic"
 #include "blob_file_set.h"
 #include "iostream"
+#include "queue"
 
 std::atomic<uint64_t> compute_gc_score{0};
 
 namespace rocksdb {
 namespace titandb {
+
+
 
 extern Env *env_;
 
@@ -332,6 +335,7 @@ void BlobStorage::PrintFileStates() {
     std::vector<uint64_t> nomark_discardable_size(cf_options_.num_levels);
     std::vector<uint64_t> merge_discardable_size(cf_options_.num_levels);
     std::vector<uint64_t> reach_without_mark(cf_options_.num_levels);
+    std::vector<std::priority_queue<FileDataDiffKV>> file_data(cf_options_.num_levels);
     uint64_t num_unsorted = 0;
     uint64_t discardable_unsorted = 0;
     uint64_t discardable_reach_unsorted = 0;
@@ -360,9 +364,11 @@ void BlobStorage::PrintFileStates() {
       case BlobFileMeta::FileState::kToGC:
         numNeedGC[level]++;
         gc_discardable_size[level]+=file.second->discardable_size();
+        file_data[level].push({file.second->GetDiscardableRatio(),file.second->file_size(),file.second->discardable_size()});
         break;
       default:
         nomark_discardable_size[level]+=file.second->discardable_size();
+        file_data[level].push({file.second->GetDiscardableRatio(),file.second->file_size(),file.second->discardable_size()});
         if(file.second->GetDiscardableRatio()>cf_options_.blob_file_discardable_ratio){
           reach_without_mark[level]++;
         }
@@ -383,6 +389,12 @@ void BlobStorage::PrintFileStates() {
       std::cout<<"] blob files"<<std::endl;
       std::cout<<"numBlobsolete files: "<<numObsolete[i]<<"\nnum need merge files: "<<numNeedMerge[i]<<"\nnum need gc files: "<<numNeedGC[i]<<"\ndiscardable size of need gc: "<<gc_discardable_size[i]<<"\ndiscardable size of need merge: "<<merge_discardable_size[i]<<"\ndiscardable size of no mark: "<<nomark_discardable_size[i]<<"."<<std::endl;
       std::cout<<"reach gc thresh but no mark:"<<reach_without_mark[i]<<std::endl;
+      std::cout<<"each file 's discardable data"<<std::endl;
+      while(!file_data[i].empty()){
+        auto iter=file_data[i].top();
+        file_data[i].pop();
+        std::cout<<"discardable Ratio "<<iter.discardable_Ratio<<" file size: "<<iter.file_size<<" discardable size: "<<iter.discardable_size<<std::endl;
+      }
     }
     std::cout << "~~~~~ unsorted file ~~~~~~\n";
     std::cout<<"discardable: "<<discardable_unsorted<<"\n discardable that reach threshold: "<<discardable_reach_unsorted<<std::endl;

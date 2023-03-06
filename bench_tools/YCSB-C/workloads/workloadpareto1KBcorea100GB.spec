@@ -10,10 +10,10 @@ pareto_k=0.91
 pareto_theta=0
 pareto_sigma=226
 
-readproportion=0.5
+readproportion=0
 updateproportion=0.5
 scanproportion=0
-insertproportion=0
+insertproportion=0.5
 
 fieldlength=1000
 requestdistribution=zipfian

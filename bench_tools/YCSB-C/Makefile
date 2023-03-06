@@ -3,7 +3,7 @@ LD_LIBRARY_ROCKSDB=$(shell pwd)/../../dep/rocksdb/include/
 LD_LIBRARY_DiffKV= $(shell pwd)/../../include/
 INCLUDES= -I ./ -I $(LD_LIBRARY_ROCKSDB) -I $(LD_LIBRARY_DiffKV)
 CFLAGS=-std=c++11 -g -Wall -pthread
-LDFLAGS=$(shell pwd)/../../build/libdiffkv.a $(shell pwd)/../../dep/rocksdb/librocksdb.a -lzstd -lpthread -ltbb -llz4 -lbz2 -lhiredis -lpebblesdb -ltitan -lrocksdb -lsnappy -lz -ldl
+LDFLAGS=$(shell pwd)/../../build/libdiffkv.a $(shell pwd)/../../dep/rocksdb/librocksdb.a -lzstd -lpthread -ltbb -llz4 -lbz2 -lhiredis -lpebblesdb -lrocksdb -lsnappy -lz -ldl
 SUBDIRS=core db redis
 SUBSRCS=$(wildcard core/*.cc) $(wildcard db/*.cc)
 OBJECTS=$(SUBSRCS:.cc=.o)

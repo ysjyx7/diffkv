@@ -1,0 +1,5 @@
+第五个和第六个是测试了当允许l0到l4进行compaction的时候开启intracompaction的数据
+第七个和第八个是测试了最初版本diffkv开启intracompaction的数据
+第九个和第十个是打印了infra信息的compaction
+第十一和第十二个是进行最开始的GC测试对比，测一下不带merge的GC
+前面的几个带bt的就是将level_base_dynamic_bytes设置的5

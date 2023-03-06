@@ -55,7 +55,7 @@ namespace ycsbc {
         options.blob_file_discardable_ratio = gcRatio;
 
         if(options.level_merge) {
-            options.base_level_for_dynamic_level_bytes = 4;
+            options.base_level_for_dynamic_level_bytes = config.getBaseleveldynamicbytes();
             options.level_compaction_dynamic_level_bytes = true;
 
         }
@@ -142,10 +142,10 @@ namespace ycsbc {
     }
 
     void TitanDB::printStats() {
-        // string stats;
-        // db_->GetProperty("rocksdb.stats",&stats);
-        // cout<<stats<<endl;
-        // cout<<options.statistics->ToString() << endl;
+         string stats;
+         db_->GetProperty("rocksdb.stats",&stats);
+         cout<<stats<<endl;
+         cout<<options.statistics->ToString() << endl;
     }
 
     TitanDB::~TitanDB() {

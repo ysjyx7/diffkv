@@ -45,6 +45,7 @@ namespace ycsbc {
         double GCRatio_;
         uint64_t blockWriteSize_;
         bool intra_compation_;
+        uint64_t base_level_dynamic_bytes;
 
 
     public:
@@ -77,6 +78,7 @@ namespace ycsbc {
             GCRatio_ = pt_.get<double>("config.gcRatio");
             blockWriteSize_ = pt_.get<uint64_t>("config.blockWriteSize");
             intra_compation_ = pt_.get<bool>("config.intraCompaction");
+            base_level_dynamic_bytes=pt_.get<uint64_t>("config.base_level_dynamic_bytes");
         }
 
         int getBloomBits() {
@@ -184,6 +186,9 @@ namespace ycsbc {
         }
         bool getIntraCompaction(){
             return intra_compation_;
+        }
+        uint64_t getBaseleveldynamicbytes(){
+            return base_level_dynamic_bytes;
         }
     };
 }
