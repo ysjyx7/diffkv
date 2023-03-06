@@ -69,7 +69,7 @@ namespace ycsbc {
         options.disable_auto_compactions = config.getNoCompaction();
         options.mid_blob_size = config.getMidThresh();
         options.min_blob_size = config.getSmallThresh();
-     
+    
 
         rocksdb::Status s = rocksdb::titandb::TitanDB::Open(options, dbfilename, &db_);
         if(!s.ok()){

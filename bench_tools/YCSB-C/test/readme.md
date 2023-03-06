@@ -3,3 +3,5 @@
 第九个和第十个是打印了infra信息的compaction
 第十一和第十二个是进行最开始的GC测试对比，测一下不带merge的GC
 前面的几个带bt的就是将level_base_dynamic_bytes设置的5
+第十三和第十四个是测试的gcRatio是0.3时候的OOPSLA对GC的影响，没搞好，实际上这里在测的是没有GC的diffkv....
+第十五个测试的是上面说的

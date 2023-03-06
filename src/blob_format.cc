@@ -287,6 +287,12 @@ double BlobFileMeta::GetDiscardableRatio() const {
          static_cast<double>(file_size_);
 }
 
+double BlobFileMeta::GetOOPSLADiscardableRatio() const{
+  double livable_size_=static_cast<double>(file_size_)-static_cast<double>(discardable_size_);
+  double l1=livable_size_+10*sqrt(livable_size_)/3;
+  return static_cast<double>(file_size_)/l1;
+}
+
 void BlobFileHeader::EncodeTo(std::string* dst) const {
   PutFixed32(dst, kHeaderMagicNumber);
   PutFixed32(dst, version);

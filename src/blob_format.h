@@ -225,6 +225,7 @@ class BlobFileMeta {
 
   void AddDiscardableSize(uint64_t _discardable_size);
   double GetDiscardableRatio() const;
+  double GetOOPSLADiscardableRatio() const;
   bool NoLiveData() {
     return discardable_size_ == file_size_ - kBlobHeaderSize - kBlobFooterSize;
   }

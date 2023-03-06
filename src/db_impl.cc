@@ -36,6 +36,7 @@ extern std::atomic<uint64_t> foreground_blob_finish_time;
 extern std::atomic<uint64_t> compute_gc_score;
 extern std::atomic<uint64_t> gc_write_blob;
 extern std::atomic<uint64_t> waitflush;
+extern std::atomic<uint64_t> skipMergeforStall;
 
 std::atomic<uint64_t> range_merge_file{0};
 std::atomic<uint64_t> gc_mark_file{0};
@@ -1130,6 +1131,7 @@ bool TitanDBImpl::GetProperty(ColumnFamilyHandle* column_family,
             << foreground_blob_add_time / 1000000.0 << std::endl;
   std::cout << "blob finish time: "
             << foreground_blob_finish_time / 1000000.0 << std::endl;
+  std::cout << "skip merge for stall: "<<skipMergeforStall<<std::endl;
 
   std::cout << "\n## blob file states in each level ##\n";
   blob_file_set_->PrintFileStates();
@@ -1386,8 +1388,10 @@ void TitanDBImpl::OnCompactionCompleted(
                         cf_options.high_level_blob_discardable_ratio ||
                     (static_cast<int>(file->file_level()) >=
                          cf_options.num_levels - 2 &&*/
-                     file->GetDiscardableRatio() >
-                         cf_options.blob_file_discardable_ratio)) {
+                    // file->GetDiscardableRatio() >1
+                    file->GetOOPSLADiscardableRatio()>1
+                         //cf_options.blob_file_discardable_ratio
+                         )) {
           if(file->file_state() != BlobFileMeta::FileState::kToGC)
             mark++;
           file->FileStateTransit(BlobFileMeta::FileEvent::kNeedGC);
