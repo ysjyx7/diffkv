@@ -5,3 +5,6 @@
 前面的几个带bt的就是将level_base_dynamic_bytes设置的5
 第十三和第十四个是测试的gcRatio是0.3时候的OOPSLA对GC的影响，没搞好，实际上这里在测的是没有GC的diffkv....
 第十五个测试的是上面说的
+第十六个想测一下针对merge的时候发生阻塞时加快compaction的情况
+第二十个和第二十一个测得就是全新实现之后的limitdesign对高写入的影响
+第二十二个和第二十三个测的是全新实现对Scan的影响，用的是workloade

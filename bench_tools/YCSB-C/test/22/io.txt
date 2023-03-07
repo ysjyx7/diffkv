@@ -1,0 +1,86 @@
+Linux 4.15.0-204-generic (node12) 	2023年03月07日 	_x86_64_	(24 CPU)
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc             11.93   32.05    293.18   8170.17     0.02     8.86   0.19  21.66    8.43    3.53   0.21    24.58   254.89   1.28   5.64
+sdc1            11.93   31.99    293.18   8170.17     0.02     8.86   0.19  21.69    8.43    3.53   0.21    24.58   255.37   1.28   5.64
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  595.00      0.00 141716.00     0.00   155.00   0.00  20.67    0.00   50.13  35.16     0.00   238.18   1.55  92.00
+sdc1             0.00  593.00      0.00 141716.00     0.00   155.00   0.00  20.72    0.00   50.30  35.16     0.00   238.98   1.55  92.00
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  662.00      0.00 159688.00     0.00    88.00   0.00  11.73    0.00   81.93  51.64     0.00   241.22   1.51 100.00
+sdc1             0.00  661.00      0.00 159688.00     0.00    88.00   0.00  11.75    0.00   82.16  51.64     0.00   241.59   1.51 100.00
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  666.00      0.00 158764.00     0.00   125.00   0.00  15.80    0.00   44.08  28.35     0.00   238.38   1.50 100.00
+sdc1             0.00  662.00      0.00 158764.00     0.00   125.00   0.00  15.88    0.00   44.11  28.27     0.00   239.82   1.51 100.00
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  623.00      0.00 151480.00     0.00    45.00   0.00   6.74    0.00   94.02  68.02     0.00   243.15   1.61 100.00
+sdc1             0.00  622.00      0.00 151480.00     0.00    45.00   0.00   6.75    0.00   94.17  68.02     0.00   243.54   1.61 100.00
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  629.00      0.00 150296.00     0.00    60.00   0.00   8.71    0.00   80.17  39.22     0.00   238.94   1.57  98.80
+sdc1             0.00  627.00      0.00 150296.00     0.00    60.00   0.00   8.73    0.00   80.42  39.22     0.00   239.71   1.58  98.80
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  678.00      0.00 157184.00     0.00   356.00   0.00  34.43    0.00   29.54  20.04     0.00   231.83   1.46  99.20
+sdc1             0.00  675.00      0.00 157184.00     0.00   356.00   0.00  34.53    0.00   29.67  20.04     0.00   232.87   1.47  99.20
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  663.00      0.00 155604.00     0.00   257.00   0.00  27.93    0.00   23.48  15.97     0.00   234.70   1.51 100.00
+sdc1             0.00  661.00      0.00 155604.00     0.00   257.00   0.00  28.00    0.00   23.55  15.97     0.00   235.41   1.51 100.00
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  624.00      0.00 151256.00     0.00    87.00   0.00  12.24    0.00   51.74  32.48     0.00   242.40   1.60 100.00
+sdc1             0.00  624.00      0.00 151256.00     0.00    87.00   0.00  12.24    0.00   51.74  32.48     0.00   242.40   1.60 100.00
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  679.00      0.00 163040.00     0.00   156.00   0.00  18.68    0.00   40.54  27.32     0.00   240.12   1.47 100.00
+sdc1             0.00  679.00      0.00 163296.00     0.00   156.00   0.00  18.68    0.00   40.70  27.32     0.00   240.49   1.47 100.00
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  626.00      0.00 153328.00     0.00    97.00   0.00  13.42    0.00   66.08  44.64     0.00   244.93   1.59  99.60
+sdc1             0.00  625.00      0.00 153072.00     0.00    97.00   0.00  13.43    0.00   66.01  44.64     0.00   244.92   1.59  99.60
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  610.00      0.00 145884.00     0.00    82.00   0.00  11.85    0.00   52.67  30.54     0.00   239.15   1.63  99.60
+sdc1             0.00  609.00      0.00 145884.00     0.00    82.00   0.00  11.87    0.00   52.66  30.48     0.00   239.55   1.64  99.60
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  612.00      0.00 149100.00     0.00    70.00   0.00  10.26    0.00   81.23  53.66     0.00   243.63   1.63 100.00
+sdc1             0.00  611.00      0.00 149100.00     0.00    70.00   0.00  10.28    0.00   81.26  53.60     0.00   244.03   1.64 100.00
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  651.00      0.00 155348.00     0.00   101.00   0.00  13.43    0.00   60.15  33.09     0.00   238.63   1.53  99.60
+sdc1             0.00  650.00      0.00 155348.00     0.00   101.00   0.00  13.45    0.00   60.24  33.09     0.00   239.00   1.53  99.60
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  629.00      0.00 142412.00     0.00   249.00   0.00  28.36    0.00   14.75   9.49     0.00   226.41   1.58  99.60
+sdc1             0.00  625.00      0.00 142412.00     0.00   249.00   0.00  28.49    0.00   14.84   9.48     0.00   227.86   1.59  99.60
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  621.00      0.00 146288.00     0.00   214.00   0.00  25.63    0.00   28.57  17.55     0.00   235.57   1.60  99.60
+sdc1             0.00  620.00      0.00 146288.00     0.00   214.00   0.00  25.66    0.00   28.59  17.53     0.00   235.95   1.61  99.60
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  634.00      0.00 151720.00     0.00   206.00   0.00  24.52    0.00   36.43  23.08     0.00   239.31   1.56  99.20
+sdc1             0.00  632.00      0.00 151720.00     0.00   206.00   0.00  24.58    0.00   36.44  23.01     0.00   240.06   1.57  99.20
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  684.00      0.00 165156.00     0.00   221.00   0.00  24.42    0.00   36.18  24.92     0.00   241.46   1.46 100.00
+sdc1             0.00  684.00      0.00 165156.00     0.00   221.00   0.00  24.42    0.00   36.18  24.92     0.00   241.46   1.46 100.00
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  702.00      0.00 166156.00     0.00   137.00   0.00  16.33    0.00   30.06  21.01     0.00   236.69   1.42 100.00
+sdc1             0.00  699.00      0.00 166156.00     0.00   137.00   0.00  16.39    0.00   30.17  21.00     0.00   237.71   1.42  99.60
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  621.00      0.00 148604.00     0.00   132.00   0.00  17.53    0.00   46.97  29.06     0.00   239.30   1.60  99.60
+sdc1             0.00  620.00      0.00 148604.00     0.00   132.00   0.00  17.55    0.00   47.04  29.06     0.00   239.68   1.60  99.20
+
+Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util
+sdc              0.00  602.00      0.00 143288.00     0.00   199.00   0.00  24.84    0.00   28.94  20.86     0.00   238.02   1.29  77.60
+sdc1             0.00  602.00      0.00 143288.00     0.00   199.00   0.00  24.84    0.00   28.94  20.86     0.00   238.02   1.29  77.60
+
