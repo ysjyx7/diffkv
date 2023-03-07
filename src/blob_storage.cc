@@ -344,9 +344,9 @@ void BlobStorage::PrintFileStates() {
       if(file.second->file_type()==kUnSorted){
         num_unsorted++;
         discardable_unsorted += file.second->discardable_size();
-        if(//file.second->GetDiscardableRatio()>1
-        file.second->GetOOPSLADiscardableRatio()>1
-        //cf_options_.blob_file_discardable_ratio
+        if(file.second->GetDiscardableRatio()>
+       // file.second->GetOOPSLADiscardableRatio()>1
+        cf_options_.blob_file_discardable_ratio
         ){
           discardable_reach_unsorted += file.second->discardable_size();
         }
@@ -367,14 +367,14 @@ void BlobStorage::PrintFileStates() {
       case BlobFileMeta::FileState::kToGC:
         numNeedGC[level]++;
         gc_discardable_size[level]+=file.second->discardable_size();
-        file_data[level].push({/*file.second->GetDiscardableRatio()*/file.second->GetOOPSLADiscardableRatio(),file.second->file_size(),file.second->discardable_size()});
+        file_data[level].push({file.second->GetDiscardableRatio()/*file.second->GetOOPSLADiscardableRatio()*/,file.second->file_size(),file.second->discardable_size()});
         break;
       default:
         nomark_discardable_size[level]+=file.second->discardable_size();
-        file_data[level].push({/*file.second->GetDiscardableRatio()*/file.second->GetOOPSLADiscardableRatio(),file.second->file_size(),file.second->discardable_size()});
-        if(//file.second->GetDiscardableRatio()>1
-        file.second->GetOOPSLADiscardableRatio()>1
-        //cf_options_.blob_file_discardable_ratio
+        file_data[level].push({file.second->GetDiscardableRatio()/*file.second->GetOOPSLADiscardableRatio()*/,file.second->file_size(),file.second->discardable_size()});
+        if(file.second->GetDiscardableRatio()>
+       // file.second->GetOOPSLADiscardableRatio()>1
+        cf_options_.blob_file_discardable_ratio
         ){
           reach_without_mark[level]++;
         }
@@ -448,8 +448,8 @@ size_t BlobStorage::ComputeGCScore() {
 
     for (auto &file : files_) {
       if (file.second->is_obsolete() ||
-          (cf_options_.level_merge && (file.second->file_type() == kSorted || /*file.second->GetDiscardableRatio() <1*/file.second->GetOOPSLADiscardableRatio()<1
-              //cf_options_.blob_file_discardable_ratio
+          (cf_options_.level_merge && (file.second->file_type() == kSorted || file.second->GetDiscardableRatio() </*file.second->GetOOPSLADiscardableRatio()<1*/
+              cf_options_.blob_file_discardable_ratio
               ))) {
         continue;
       }
@@ -465,8 +465,8 @@ file.second->gc_mark()*/
         // more invalid data
         gcs.score = cf_options_.blob_file_discardable_ratio;
       } else {
-        //gcs.score = file.second->GetDiscardableRatio();
-        gcs.score=file.second->GetOOPSLADiscardableRatio();
+        gcs.score = file.second->GetDiscardableRatio();
+        //gcs.score=file.second->GetOOPSLADiscardableRatio();
       }
     }
 

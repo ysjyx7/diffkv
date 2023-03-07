@@ -1388,9 +1388,9 @@ void TitanDBImpl::OnCompactionCompleted(
                         cf_options.high_level_blob_discardable_ratio ||
                     (static_cast<int>(file->file_level()) >=
                          cf_options.num_levels - 2 &&*/
-                    // file->GetDiscardableRatio() >1
-                    file->GetOOPSLADiscardableRatio()>1
-                         //cf_options.blob_file_discardable_ratio
+                     file->GetDiscardableRatio() >
+                   // file->GetOOPSLADiscardableRatio()>1
+                         cf_options.blob_file_discardable_ratio
                          )) {
           if(file->file_state() != BlobFileMeta::FileState::kToGC)
             mark++;

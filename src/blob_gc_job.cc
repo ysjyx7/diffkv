@@ -192,9 +192,9 @@ Status BlobGCJob::DoSample(const BlobFileMeta* file, bool* selected) {
       blob_gc_->titan_cf_options().merge_small_file_threshold) {
     metrics_.gc_small_file += 1;
     *selected = true;
-  } else if (//file->GetDiscardableRatio() >=
-  file->GetOOPSLADiscardableRatio()>=1
-            // blob_gc_->titan_cf_options().blob_file_discardable_ratio
+  } else if (file->GetDiscardableRatio() >=
+ // file->GetOOPSLADiscardableRatio()>=1
+             blob_gc_->titan_cf_options().blob_file_discardable_ratio
             ) {
     metrics_.gc_discardable += 1;
     *selected = true;
