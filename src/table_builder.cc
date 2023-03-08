@@ -19,6 +19,7 @@ std::atomic<uint64_t> foreground_blob_add_time{0};
 std::atomic<uint64_t> foreground_blob_finish_time{0};
 std::atomic<uint64_t> waitflush{0};
 std::atomic<uint64_t> skipMergeforStall{0};
+std::atomic<uint64_t> normalMergeNotSkip{0};
 // rocksdb::Env* env_ = rocksdb::Env::Default();
 // extern rocksdb::Env* env_;
 
@@ -289,6 +290,8 @@ bool TitanTableBuilder::ShouldMerge(
   // 2. Blob file is marked by GC or range merge
   if(SBFlag){
     skipMergeforStall++;
+  }else{
+    normalMergeNotSkip++;
   }
   return !SBFlag&&file != nullptr && file->file_type() == kSorted && 
            ((target_level_>=merge_level_ && static_cast<int>(file->file_level()) < target_level_)||

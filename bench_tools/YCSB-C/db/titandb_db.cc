@@ -9,6 +9,7 @@
 #include "leveldb_config.h"
 #include "rocksdb/statistics.h"
 #include "rocksdb/flush_block_policy.h"
+#include "rocksdb/rate_limiter.h"
 
 using namespace std;
 
@@ -61,7 +62,10 @@ namespace ycsbc {
         }
         std::cerr<<"set intro compaction "<< config.getIntraCompaction()<<std::endl;
         options.intra_compact_small_l0 = config.getIntraCompaction();
-  
+        // options.rate_limiter.reset(rocksdb::NewGenericRateLimiter(
+        //     200<<20,100000L,10,rocksdb::RateLimiter::Mode::kWritesOnly,true
+        // ));
+        
 		std::cerr<<"intro compaction "<<options.intra_compact_small_l0<<std::endl;
         options.sep_before_flush = config.getSepBeforeFlush();
         if(config.getTiered()) options.compaction_style = rocksdb::kCompactionStyleUniversal;

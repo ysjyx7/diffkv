@@ -37,6 +37,7 @@ extern std::atomic<uint64_t> compute_gc_score;
 extern std::atomic<uint64_t> gc_write_blob;
 extern std::atomic<uint64_t> waitflush;
 extern std::atomic<uint64_t> skipMergeforStall;
+extern std::atomic<uint64_t> normalMergeNotSkip;
 
 std::atomic<uint64_t> range_merge_file{0};
 std::atomic<uint64_t> gc_mark_file{0};
@@ -1132,6 +1133,7 @@ bool TitanDBImpl::GetProperty(ColumnFamilyHandle* column_family,
   std::cout << "blob finish time: "
             << foreground_blob_finish_time / 1000000.0 << std::endl;
   std::cout << "skip merge for stall: "<<skipMergeforStall<<std::endl;
+  std::cout<<"normal Merge is: "<<normalMergeNotSkip<<std::endl;
 
   std::cout << "\n## blob file states in each level ##\n";
   blob_file_set_->PrintFileStates();
