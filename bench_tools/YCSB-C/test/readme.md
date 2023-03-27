@@ -9,3 +9,5 @@
 第二十个和第二十一个测得就是全新实现之后的limitdesign对高写入的影响
 第二十二个和第二十三个测的是全新实现对Scan的影响，用的是workloade
 第三十个和第三十一个测一下开启rate limit之后的影响，测了workloada和workloade的数据
+
+第42和第43测一下限速的xiaoguo
