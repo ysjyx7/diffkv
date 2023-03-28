@@ -1,8 +1,8 @@
 output_log_dir="./test"
 output_log_file="diffkv"
 
-i=42
-while(($i<44))
+i=52
+while(($i<54))
 do
     echo "=====================this is ${i}th test================"
     mkdir "${output_log_dir}/${i}"
