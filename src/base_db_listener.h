@@ -19,6 +19,10 @@ class BaseDbListener final : public EventListener {
   void OnCompactionCompleted(
       DB* db, const CompactionJobInfo& compaction_job_info) override;
 
+  void NotifyWriteStall()override;
+
+  void NotifyWriteStallComplete()override;
+
  private:
   rocksdb::titandb::TitanDBImpl* db_impl_;
 };

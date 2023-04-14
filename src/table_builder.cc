@@ -9,7 +9,6 @@
 #include <future>
 #include <iostream>
 #include "monitoring/statistics.h"
-extern bool SBFlag;
 
 std::atomic<uint64_t> blob_merge_time{0};
 std::atomic<uint64_t> blob_read_time{0};
@@ -18,13 +17,14 @@ std::atomic<uint64_t> blob_finish_time{0};
 std::atomic<uint64_t> foreground_blob_add_time{0};
 std::atomic<uint64_t> foreground_blob_finish_time{0};
 std::atomic<uint64_t> waitflush{0};
-std::atomic<uint64_t> skipMergeforStall{0};
-std::atomic<uint64_t> normalMergeNotSkip{0};
 // rocksdb::Env* env_ = rocksdb::Env::Default();
 // extern rocksdb::Env* env_;
 
 namespace rocksdb {
 namespace titandb {
+
+
+extern bool IsWriteStall;
 Env *env_ = Env::Default();
 
 TitanTableBuilder::~TitanTableBuilder() {
@@ -288,12 +288,7 @@ bool TitanTableBuilder::ShouldMerge(
   // 1. Corresponding keys are being compacted to last two level from lower
   // level
   // 2. Blob file is marked by GC or range merge
-  if(SBFlag){
-    skipMergeforStall++;
-  }else{
-    normalMergeNotSkip++;
-  }
-  return !SBFlag&&file != nullptr && file->file_type() == kSorted && 
+  return IsWriteStall&&file != nullptr && file->file_type() == kSorted && 
            ((target_level_>=merge_level_ && static_cast<int>(file->file_level()) < target_level_)||
             file->file_state() == BlobFileMeta::FileState::kToMerge||file->file_state() == BlobFileMeta::FileState::kToGC);
 }
