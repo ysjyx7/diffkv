@@ -22,7 +22,7 @@ class BlobGCJob {
             const TitanDBOptions& titan_db_options, Env* env,
             const EnvOptions& env_options, BlobFileManager* blob_file_manager,
             BlobFileSet* blob_file_set, LogBuffer* log_buffer,
-            std::atomic_bool* shuting_down, TitanStats* stats, ForegroundBuilder* builder);
+            std::atomic_bool* shuting_down, TitanStats* stats, ForegroundBuilder* builder = nullptr);
 
   // No copying allowed
   BlobGCJob(const BlobGCJob&) = delete;
