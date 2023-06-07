@@ -13,6 +13,7 @@
 #include "db.h"
 #include "core_workload.h"
 #include "utils.h"
+#include "timer.h"
 
 extern double ops_time[4];
 extern long ops_cnt[4];

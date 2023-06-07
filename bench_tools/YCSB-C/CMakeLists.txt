@@ -21,8 +21,8 @@ include_directories(
 
 #5. third path link path
 link_directories(
-  ${PROJECT_SOURCE_DIR}/../../dep/rocksdb
   ${PROJECT_SOURCE_DIR}/../../build
+  ${PROJECT_SOURCE_DIR}/../../build/rocksdb
   )
 
 #6. source code file path

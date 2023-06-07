@@ -59,14 +59,13 @@ std::unique_ptr<BlobGC> BasicBlobGCPicker::PickBlobGC(
       // size"<<std::endl;
       estimate_output_size +=
           (blob_file->file_size() - blob_file->discardable_size());
-      if (batch_size >= cf_options_.max_gc_batch_size /*||
-          estimate_output_size >= cf_options_.blob_file_target_size*/) {
+      if (batch_size >= cf_options_.max_gc_batch_size ||
+          estimate_output_size >= cf_options_.blob_file_target_size) {
         stop_picking = true;
       }
     } else {
-      // next_gc_size += blob_file->file_size();
-      // if (next_gc_size > cf_options_.min_gc_batch_size) {
-        if (blob_storage->gc_score().size()-cnt>(1<<30)/blob_storage->cf_options().blob_file_target_size){
+      next_gc_size += blob_file->file_size();
+      if (next_gc_size > cf_options_.min_gc_batch_size) {
         maybe_continue_next_time = true;
         
 

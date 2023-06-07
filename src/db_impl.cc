@@ -1338,12 +1338,18 @@ void TitanDBImpl::OnCompactionCompleted(
     bool count_sorted_run =
         cf_options.level_merge && cf_options.range_merge &&
         cf_options.num_levels - 2 <= compaction_job_info.output_level;
-        /*
-    if(count_sorted_run){
-    std::cerr<<"num levels "<<cf_options.num_levels<<" output level "<<compaction_job_info.output_level<<" input level "<<compaction_job_info.base_input_level<<std::endl;
-    if(cf_options.num_levels - 1 == compaction_job_info.output_level) std::cerr<<compaction_job_info.output_level<<" is "<<cf_options.num_levels - 1<<std::endl;
-    else std::cerr<<"no"<<std::endl;
-    }*/
+    /*
+    if (count_sorted_run) {
+      std::cerr << "num levels " << cf_options.num_levels << " output level "
+                << compaction_job_info.output_level << " input level "
+                << compaction_job_info.base_input_level << std::endl;
+      if (cf_options.num_levels - 1 == compaction_job_info.output_level)
+        std::cerr << compaction_job_info.output_level << " is "
+                  << cf_options.num_levels - 1 << std::endl;
+      else
+        std::cerr << "no" << std::endl;
+    }
+    */
     for (const auto& bfs : blob_files_size_diff) {
       // std::cerr<<"total "<<blob_files_size_diff.size()<<"vtables in output level"<<compaction_job_info.output_level<<std::endl;
       // blob file size < 0 means discardable size > 0

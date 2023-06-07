@@ -14,7 +14,9 @@ class BaseDbListener final : public EventListener {
 
   void OnFlushCompleted(DB* db, const FlushJobInfo& flush_job_info) override;
 
-  void OnMemTableSealed(const MemTableInfo& /*info*/);
+  void OnMemTableSealed(const MemTableInfo& /*info*/) override;
+
+  void OnStallConditionsChanged(const WriteStallInfo&) override;
 
   void OnCompactionCompleted(
       DB* db, const CompactionJobInfo& compaction_job_info) override;

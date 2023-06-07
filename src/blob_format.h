@@ -191,7 +191,7 @@ class BlobFileMeta {
   BlobFileMeta(uint64_t _file_number, uint64_t _file_size,
                uint64_t _file_entries, uint32_t _file_level,
                const std::string &_smallest_key,
-               const std::string &_largest_key, uint32_t _file_type = 1)
+               const std::string &_largest_key, uint32_t _file_type = kUnSorted)
       : file_number_(_file_number),
         file_size_(_file_size),
         file_entries_(_file_entries),

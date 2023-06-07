@@ -1,5 +1,6 @@
 #pragma once
 
+#include "db_impl.h"
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
 #endif
@@ -34,7 +35,9 @@ class TitanDBIterator : public Iterator {
         env_(env),
         stats_(stats),
         info_log_(info_log) {}
-
+  ~TitanDBIterator(){
+    std::cerr << "end of titandb iterator" << std::endl;
+  }
   bool Valid() const override { return iter_->Valid(); /*&& status_.ok(); */ }
 
   Status status() const override {
@@ -135,8 +138,7 @@ void Scan(const Slice& target, int& len, std::vector<std::string>& keys,
     }
   }
 
-/*
-  void Scan(const Slice& target, int& len, std::vector<std::string>& keys,
+  void ScanV2(const Slice& target, int& len, std::vector<std::string>& keys,
             std::vector<std::string>& values) {
     std::vector<BlobIndex> indexes(len);
     int i = 0;
@@ -179,8 +181,7 @@ void Scan(const Slice& target, int& len, std::vector<std::string>& keys,
     }
     return;
   }
-  */
-  // */
+
   void Prev() override {
     assert(Valid());
     iter_->Prev();

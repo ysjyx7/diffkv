@@ -51,3 +51,4 @@ db_size
 __pycache__
 #vscode cache
 .vscode
+compile_commands.json
