@@ -1,4 +1,5 @@
 #include "db_impl.h"
+#include "db_scan_monitor.h"
 
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
@@ -43,18 +44,18 @@ std::atomic<uint64_t> gc_mark_file{0};
 namespace rocksdb {
 namespace titandb {
 
-// ThreadPool* TitanDBIterator::pool_ = new ThreadPool(32);
+ThreadPool *TitanDBIterator::pool_ = new ThreadPool(32);
 
 class TitanDBImpl::FileManager : public BlobFileManager {
- public:
-  FileManager(TitanDBImpl* db) : db_(db) {}
+public:
+  FileManager(TitanDBImpl *db) : db_(db) {}
 
-  Status NewFile(std::unique_ptr<BlobFileHandle>* handle) override {
+  Status NewFile(std::unique_ptr<BlobFileHandle> *handle) override {
     return NewFile(handle, db_->env_options_);
   }
 
-  Status NewFile(std::unique_ptr<BlobFileHandle>* handle,
-                 const EnvOptions& options) override {
+  Status NewFile(std::unique_ptr<BlobFileHandle> *handle,
+                 const EnvOptions &options) override {
     auto number = db_->blob_file_set_->NewFileNumber();
     auto name = BlobFileName(db_->dirname_, number);
 
@@ -63,7 +64,8 @@ class TitanDBImpl::FileManager : public BlobFileManager {
     {
       std::unique_ptr<WritableFile> f;
       s = db_->env_->NewWritableFile(name, &f, options);
-      if (!s.ok()) return s;
+      if (!s.ok())
+        return s;
       file.reset(new WritableFileWriter(std::move(f), name, options));
     }
 
@@ -75,15 +77,15 @@ class TitanDBImpl::FileManager : public BlobFileManager {
     return s;
   }
 
-  Status BatchFinishFiles(
-      uint32_t cf_id,
-      const std::vector<std::pair<std::shared_ptr<BlobFileMeta>,
-                                  std::unique_ptr<BlobFileHandle>>>& files)
-      override {
+  Status
+  BatchFinishFiles(uint32_t cf_id,
+                   const std::vector<std::pair<std::shared_ptr<BlobFileMeta>,
+                                               std::unique_ptr<BlobFileHandle>>>
+                       &files) override {
     Status s;
     VersionEdit edit;
     edit.SetColumnFamilyID(cf_id);
-    for (auto& file : files) {
+    for (auto &file : files) {
       // RecordTick(db_->stats_.get(), BLOB_DB_BLOB_FILE_SYNCED);
       {
         StopWatch sync_sw(db_->env_, db_->stats_.get(),
@@ -93,7 +95,8 @@ class TitanDBImpl::FileManager : public BlobFileManager {
       if (s.ok()) {
         s = file.second->GetFile()->Close();
       }
-      if (!s.ok()) return s;
+      if (!s.ok())
+        return s;
 
       ROCKS_LOG_INFO(db_->db_options_.info_log,
                      "Titan adding blob file [%" PRIu64 "] range [%s, %s]",
@@ -109,58 +112,54 @@ class TitanDBImpl::FileManager : public BlobFileManager {
       if (!s.ok()) {
         db_->SetBGError(s);
       }
-      for (const auto& file : files)
+      for (const auto &file : files)
         db_->pending_outputs_.erase(file.second->GetNumber());
     }
     return s;
   }
 
   Status BatchDeleteFiles(
-      const std::vector<std::unique_ptr<BlobFileHandle>>& handles) override {
+      const std::vector<std::unique_ptr<BlobFileHandle>> &handles) override {
     Status s;
     uint64_t file_size = 0;
-    for (auto& handle : handles) {
+    for (auto &handle : handles) {
       s = db_->env_->DeleteFile(handle->GetName());
       file_size += handle->GetFile()->GetFileSize();
     }
     {
       MutexLock l(&db_->mutex_);
-      for (const auto& handle : handles)
+      for (const auto &handle : handles)
         db_->pending_outputs_.erase(handle->GetNumber());
     }
     return s;
   }
 
- private:
+private:
   class FileHandle : public BlobFileHandle {
-   public:
-    FileHandle(uint64_t number, const std::string& name,
+  public:
+    FileHandle(uint64_t number, const std::string &name,
                std::unique_ptr<WritableFileWriter> file)
         : number_(number), name_(name), file_(std::move(file)) {}
 
     uint64_t GetNumber() const override { return number_; }
 
-    const std::string& GetName() const override { return name_; }
+    const std::string &GetName() const override { return name_; }
 
-    WritableFileWriter* GetFile() const override { return file_.get(); }
+    WritableFileWriter *GetFile() const override { return file_.get(); }
 
-   private:
+  private:
     uint64_t number_;
     std::string name_;
     std::unique_ptr<WritableFileWriter> file_;
   };
 
-  TitanDBImpl* db_;
+  TitanDBImpl *db_;
 };
 
-TitanDBImpl::TitanDBImpl(const TitanDBOptions& options,
-                         const std::string& dbname)
-    : bg_cv_(&mutex_),
-      dbname_(dbname),
-      env_(options.env),
-      env_options_(options),
-      db_options_(options),
-      size_cv_(&size_mutex_) {
+TitanDBImpl::TitanDBImpl(const TitanDBOptions &options,
+                         const std::string &dbname)
+    : bg_cv_(&mutex_), dbname_(dbname), env_(options.env),
+      env_options_(options), db_options_(options), size_cv_(&size_mutex_) {
   if (db_options_.dirname.empty()) {
     db_options_.dirname = dbname_ + "/titandb";
   }
@@ -169,12 +168,14 @@ TitanDBImpl::TitanDBImpl(const TitanDBOptions& options,
     stats_.reset(new TitanStats(db_options_.statistics.get()));
   }
   blob_manager_.reset(new FileManager(this));
+  scan_range_monitor_.reset(
+      new ScanRangeMonitor(db_options_.max_range_monitor_size));
 }
 
 TitanDBImpl::~TitanDBImpl() {
   DumpStats();
   Close();
-  std::cerr<<"done"<<std::endl;
+  std::cerr << "done" << std::endl;
 }
 
 void TitanDBImpl::StartBackgroundTasks() {
@@ -193,34 +194,38 @@ void TitanDBImpl::StartBackgroundTasks() {
 }
 
 Status TitanDBImpl::ValidateOptions(
-    const TitanDBOptions& options,
-    const std::vector<TitanCFDescriptor>& column_families) const {
+    const TitanDBOptions &options,
+    const std::vector<TitanCFDescriptor> &column_families) const {
   return Status::OK();
 }
 
-Status TitanDBImpl::Open(const std::vector<TitanCFDescriptor>& descs,
-                         std::vector<ColumnFamilyHandle*>* handles) {
+Status TitanDBImpl::Open(const std::vector<TitanCFDescriptor> &descs,
+                         std::vector<ColumnFamilyHandle *> *handles) {
   Status s = ValidateOptions(db_options_, descs);
   if (!s.ok()) {
     return s;
   }
   // Sets up directories for base DB and Titan.
   s = env_->CreateDirIfMissing(dbname_);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
   if (!db_options_.info_log) {
     s = CreateLoggerFromOptions(dbname_, db_options_, &db_options_.info_log);
-    if (!s.ok()) return s;
+    if (!s.ok())
+      return s;
   }
   s = env_->CreateDirIfMissing(dirname_);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
   s = env_->LockFile(LockFileName(dirname_), &lock_);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
 
   // Descriptors for initial DB open to get CF ids.
   std::vector<ColumnFamilyDescriptor> init_descs;
   // Descriptors for actually open DB.
   std::vector<ColumnFamilyDescriptor> base_descs;
-  for (auto& desc : descs) {
+  for (auto &desc : descs) {
     init_descs.emplace_back(desc.name, desc.options);
     base_descs.emplace_back(desc.name, desc.options);
   }
@@ -237,7 +242,7 @@ Status TitanDBImpl::Open(const std::vector<TitanCFDescriptor>& descs,
   // We also avoid flush here because we haven't replaced the table factory
   // yet, but rocksdb may still flush if memtable is full. This is fine though,
   // since values in memtable are raw values.
-  for (auto& desc : init_descs) {
+  for (auto &desc : init_descs) {
     desc.options.disable_auto_compactions = true;
   }
   db_options_.avoid_flush_during_recovery = true;
@@ -258,7 +263,7 @@ Status TitanDBImpl::Open(const std::vector<TitanCFDescriptor>& descs,
       db_->DestroyColumnFamilyHandle(handle);
       // Replaces the provided table factory with TitanTableFactory.
       // While we need to preserve original table_factory for GetOptions.
-      auto& base_table_factory = base_descs[i].options.table_factory;
+      auto &base_table_factory = base_descs[i].options.table_factory;
       assert(base_table_factory != nullptr);
       auto titan_table_factory = std::make_shared<TitanTableFactory>(
           db_options_, descs[i].options, blob_manager_, &mutex_,
@@ -282,7 +287,8 @@ Status TitanDBImpl::Open(const std::vector<TitanCFDescriptor>& descs,
     delete db_;
     db_ = nullptr;
   }
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
 
   if (stats_.get()) {
     stats_->Initialize(column_families);
@@ -298,7 +304,8 @@ Status TitanDBImpl::Open(const std::vector<TitanCFDescriptor>& descs,
       builders_[cf.first].Init();
     }
   }
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
 
   // Initialize GC thread pool.
   if (!db_options_.disable_background_gc && db_options_.max_background_gc > 0) {
@@ -308,12 +315,12 @@ Status TitanDBImpl::Open(const std::vector<TitanCFDescriptor>& descs,
 
   s = DB::Open(db_options_, dbname_, base_descs, handles, &db_);
   if (s.ok()) {
-    db_impl_ = reinterpret_cast<DBImpl*>(db_->GetRootDB());
+    db_impl_ = reinterpret_cast<DBImpl *>(db_->GetRootDB());
     ROCKS_LOG_INFO(db_options_.info_log, "Titan DB open.");
     ROCKS_LOG_HEADER(db_options_.info_log, "Titan git sha: %s",
                      titan_build_git_sha);
     db_options_.Dump(db_options_.info_log.get());
-    for (auto& desc : descs) {
+    for (auto &desc : descs) {
       ROCKS_LOG_HEADER(db_options_.info_log,
                        "Column family [%s], options:", desc.name.c_str());
       desc.options.Dump(db_options_.info_log.get());
@@ -327,36 +334,36 @@ Status TitanDBImpl::Open(const std::vector<TitanCFDescriptor>& descs,
 
 Status TitanDBImpl::Close() {
   Status s;
-  std::cerr<<"close impl\n";
+  std::cerr << "close impl\n";
   PurgeObsoleteFiles();
   CloseImpl();
   if (db_) {
-    std::cerr<<"close db_\n";
+    std::cerr << "close db_\n";
     s = db_->Close();
-    std::cerr<<"close db_ done\n";
+    std::cerr << "close db_ done\n";
     delete db_;
     db_ = nullptr;
     db_impl_ = nullptr;
   }
-  for (auto& builder : builders_) {
-    std::cerr<<"finish"<<std::endl;
+  for (auto &builder : builders_) {
+    std::cerr << "finish" << std::endl;
     builder.second.Finish();
   }
   if (lock_) {
-    std::cerr<<"unlock file\n";
+    std::cerr << "unlock file\n";
     env_->UnlockFile(lock_);
     lock_ = nullptr;
   }
-  std::cerr<<"close done\n";
+  std::cerr << "close done\n";
   return s;
 }
 
 Status TitanDBImpl::CloseImpl() {
   {
-    std::cerr<<"lock in close impl"<<std::endl;
+    std::cerr << "lock in close impl" << std::endl;
     MutexLock l(&mutex_);
     MutexLock l1(&size_mutex_);
-    std::cerr<<"got lock"<<std::endl;
+    std::cerr << "got lock" << std::endl;
     // Although `shuting_down_` is atomic bool object, we should set it under
     // the protection of mutex_, otherwise, there maybe something wrong with it,
     // like:
@@ -374,9 +381,9 @@ Status TitanDBImpl::CloseImpl() {
     MutexLock l(&mutex_);
     bg_gc_scheduled_ -= gc_unscheduled;
     while (bg_gc_scheduled_ > 0) {
-      std::cerr<<"wait gc\n";
+      std::cerr << "wait gc\n";
       bg_cv_.Wait();
-      std::cerr<<"wait gc end\n";
+      std::cerr << "wait gc end\n";
     }
   }
 
@@ -390,13 +397,13 @@ Status TitanDBImpl::CloseImpl() {
   return Status::OK();
 }
 
-Status TitanDBImpl::CreateColumnFamilies(
-    const std::vector<TitanCFDescriptor>& descs,
-    std::vector<ColumnFamilyHandle*>* handles) {
+Status
+TitanDBImpl::CreateColumnFamilies(const std::vector<TitanCFDescriptor> &descs,
+                                  std::vector<ColumnFamilyHandle *> *handles) {
   std::vector<ColumnFamilyDescriptor> base_descs;
   std::vector<std::shared_ptr<TableFactory>> base_table_factory;
   std::vector<std::shared_ptr<TitanTableFactory>> titan_table_factory;
-  for (auto& desc : descs) {
+  for (auto &desc : descs) {
     ColumnFamilyOptions options = desc.options;
     // Replaces the provided table factory with TitanTableFactory.
     base_table_factory.emplace_back(options.table_factory);
@@ -417,7 +424,7 @@ Status TitanDBImpl::CreateColumnFamilies(
     {
       MutexLock l(&mutex_);
       for (size_t i = 0; i < descs.size(); i++) {
-        ColumnFamilyHandle* handle = (*handles)[i];
+        ColumnFamilyHandle *handle = (*handles)[i];
         uint32_t cf_id = handle->GetID();
         column_families.emplace(cf_id, descs[i].options);
         cf_info_.emplace(
@@ -431,14 +438,14 @@ Status TitanDBImpl::CreateColumnFamilies(
     }
   }
   if (s.ok()) {
-    for (auto& desc : descs) {
+    for (auto &desc : descs) {
       ROCKS_LOG_INFO(db_options_.info_log, "Created column family [%s].",
                      desc.name.c_str());
       desc.options.Dump(db_options_.info_log.get());
     }
   } else {
     std::string column_families_str;
-    for (auto& desc : descs) {
+    for (auto &desc : descs) {
       column_families_str += "[" + desc.name + "]";
     }
     ROCKS_LOG_ERROR(db_options_.info_log,
@@ -449,11 +456,11 @@ Status TitanDBImpl::CreateColumnFamilies(
 }
 
 Status TitanDBImpl::DropColumnFamilies(
-    const std::vector<ColumnFamilyHandle*>& handles) {
+    const std::vector<ColumnFamilyHandle *> &handles) {
   TEST_SYNC_POINT("TitanDBImpl::DropColumnFamilies:Begin");
   std::vector<uint32_t> column_families;
   std::string column_families_str;
-  for (auto& handle : handles) {
+  for (auto &handle : handles) {
     column_families.emplace_back(handle->GetID());
     column_families_str += "[" + handle->GetName() + "]";
   }
@@ -491,8 +498,8 @@ Status TitanDBImpl::DropColumnFamilies(
   return s;
 }
 
-Status TitanDBImpl::DestroyColumnFamilyHandle(
-    ColumnFamilyHandle* column_family) {
+Status
+TitanDBImpl::DestroyColumnFamilyHandle(ColumnFamilyHandle *column_family) {
   if (column_family == nullptr) {
     return Status::InvalidArgument("Column family handle is nullptr.");
   }
@@ -522,11 +529,12 @@ Status TitanDBImpl::DestroyColumnFamilyHandle(
 }
 
 Status TitanDBImpl::CompactFiles(
-    const CompactionOptions& compact_options, ColumnFamilyHandle* column_family,
-    const std::vector<std::string>& input_file_names, const int output_level,
-    const int output_path_id, std::vector<std::string>* const output_file_names,
-    CompactionJobInfo* compaction_job_info) {
-  if (HasBGError()) return GetBGError();
+    const CompactionOptions &compact_options, ColumnFamilyHandle *column_family,
+    const std::vector<std::string> &input_file_names, const int output_level,
+    const int output_path_id, std::vector<std::string> *const output_file_names,
+    CompactionJobInfo *compaction_job_info) {
+  if (HasBGError())
+    return GetBGError();
   std::unique_ptr<CompactionJobInfo> compaction_job_info_ptr;
   if (compaction_job_info == nullptr) {
     compaction_job_info_ptr.reset(new CompactionJobInfo());
@@ -542,37 +550,40 @@ Status TitanDBImpl::CompactFiles(
   return s;
 }
 
-int TitanDBImpl::Scan(const ReadOptions& options, const std::string& start_key,
-                      int len, std::vector<std::string>& keys,
-                      std::vector<std::string>& vals) {
-  if ((int)keys.size() < len) keys.resize(len);
-  if ((int)vals.size() < len) vals.resize(len);
+int TitanDBImpl::Scan(const ReadOptions &options, const std::string &start_key,
+                      int len, std::vector<std::string> &keys,
+                      std::vector<std::string> &vals) {
+  if ((int)keys.size() < len)
+    keys.resize(len);
+  if ((int)vals.size() < len)
+    vals.resize(len);
   auto iter = this->NewIterator(options);
   int ret = len;
-  static_cast<TitanDBIterator*>(iter)->Scan(start_key, ret, keys, vals);
+  static_cast<TitanDBIterator *>(iter)->Scan(start_key, ret, keys, vals);
   delete iter;
   return ret;
 }
 
-Status TitanDBImpl::Put(const rocksdb::WriteOptions& options,
-                        rocksdb::ColumnFamilyHandle* column_family,
-                        const rocksdb::Slice& key,
-                        const rocksdb::Slice& value) {
-  if (HasBGError()) return GetBGError();
+Status TitanDBImpl::Put(const rocksdb::WriteOptions &options,
+                        rocksdb::ColumnFamilyHandle *column_family,
+                        const rocksdb::Slice &key,
+                        const rocksdb::Slice &value) {
+  if (HasBGError())
+    return GetBGError();
   // std::cerr<<"block write size is "<<db_options_.block_write_size<<".\n";
-  while (db_options_.block_write_size>0 && block_for_size_.load()){
-    std::cerr<<"blocked by size_cv\n";
-      {
-        uint32_t cf_id = column_family->GetID();
-        auto bs = blob_file_set_->GetBlobStorage(cf_id).lock();
-        bs->ComputeGCScore();
-        AddToGCQueue(cf_id);
-        MaybeScheduleGC();
-      }
+  while (db_options_.block_write_size > 0 && block_for_size_.load()) {
+    std::cerr << "blocked by size_cv\n";
+    {
+      uint32_t cf_id = column_family->GetID();
+      auto bs = blob_file_set_->GetBlobStorage(cf_id).lock();
+      bs->ComputeGCScore();
+      AddToGCQueue(cf_id);
+      MaybeScheduleGC();
+    }
     MutexLock l(&size_mutex_);
-    if(block_for_size_.load()){
-    size_cv_.Wait();
-    std::cerr<<"wait done\n";
+    if (block_for_size_.load()) {
+      size_cv_.Wait();
+      std::cerr << "wait done\n";
     }
   }
   // if (db_options_.sep_before_flush && value.size() >
@@ -588,41 +599,41 @@ Status TitanDBImpl::Put(const rocksdb::WriteOptions& options,
   }
 }
 
-Status TitanDBImpl::Write(const rocksdb::WriteOptions& options,
-                          rocksdb::WriteBatch* updates) {
+Status TitanDBImpl::Write(const rocksdb::WriteOptions &options,
+                          rocksdb::WriteBatch *updates) {
   return HasBGError() ? GetBGError() : db_->Write(options, updates);
 }
 
-Status TitanDBImpl::Delete(const rocksdb::WriteOptions& options,
-                           rocksdb::ColumnFamilyHandle* column_family,
-                           const rocksdb::Slice& key) {
+Status TitanDBImpl::Delete(const rocksdb::WriteOptions &options,
+                           rocksdb::ColumnFamilyHandle *column_family,
+                           const rocksdb::Slice &key) {
   return HasBGError() ? GetBGError() : db_->Delete(options, column_family, key);
 }
 
 Status TitanDBImpl::IngestExternalFile(
-    rocksdb::ColumnFamilyHandle* column_family,
-    const std::vector<std::string>& external_files,
-    const rocksdb::IngestExternalFileOptions& options) {
+    rocksdb::ColumnFamilyHandle *column_family,
+    const std::vector<std::string> &external_files,
+    const rocksdb::IngestExternalFileOptions &options) {
   return HasBGError()
              ? GetBGError()
              : db_->IngestExternalFile(column_family, external_files, options);
 }
 
-Status TitanDBImpl::CompactRange(const rocksdb::CompactRangeOptions& options,
-                                 rocksdb::ColumnFamilyHandle* column_family,
-                                 const rocksdb::Slice* begin,
-                                 const rocksdb::Slice* end) {
+Status TitanDBImpl::CompactRange(const rocksdb::CompactRangeOptions &options,
+                                 rocksdb::ColumnFamilyHandle *column_family,
+                                 const rocksdb::Slice *begin,
+                                 const rocksdb::Slice *end) {
   return HasBGError() ? GetBGError()
                       : db_->CompactRange(options, column_family, begin, end);
 }
 
-Status TitanDBImpl::Flush(const rocksdb::FlushOptions& options,
-                          rocksdb::ColumnFamilyHandle* column_family) {
+Status TitanDBImpl::Flush(const rocksdb::FlushOptions &options,
+                          rocksdb::ColumnFamilyHandle *column_family) {
   return HasBGError() ? GetBGError() : db_->Flush(options, column_family);
 }
 
-Status TitanDBImpl::Get(const ReadOptions& options, ColumnFamilyHandle* handle,
-                        const Slice& key, PinnableSlice* value) {
+Status TitanDBImpl::Get(const ReadOptions &options, ColumnFamilyHandle *handle,
+                        const Slice &key, PinnableSlice *value) {
   if (options.snapshot) {
     return GetImpl(options, handle, key, value);
   }
@@ -632,14 +643,15 @@ Status TitanDBImpl::Get(const ReadOptions& options, ColumnFamilyHandle* handle,
   return GetImpl(ro, handle, key, value);
 }
 
-Status TitanDBImpl::GetImpl(const ReadOptions& options,
-                            ColumnFamilyHandle* handle, const Slice& key,
-                            PinnableSlice* value) {
+Status TitanDBImpl::GetImpl(const ReadOptions &options,
+                            ColumnFamilyHandle *handle, const Slice &key,
+                            PinnableSlice *value) {
   Status s;
   bool is_blob_index = false;
   s = db_impl_->GetImpl(options, handle, key, value, nullptr /*value_found*/,
                         nullptr /*read_callback*/, &is_blob_index);
-  if (!s.ok() || !is_blob_index) return s;
+  if (!s.ok() || !is_blob_index)
+    return s;
 
   StopWatch get_sw(env_, stats_.get(), BLOB_DB_GET_MICROS);
   // RecordTick(stats_.get(), BLOB_DB_NUM_GET);
@@ -647,7 +659,8 @@ Status TitanDBImpl::GetImpl(const ReadOptions& options,
   BlobIndex index;
   s = index.DecodeFrom(value);
   assert(s.ok());
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
 
   BlobRecord record;
   PinnableSlice buffer;
@@ -682,9 +695,11 @@ Status TitanDBImpl::GetImpl(const ReadOptions& options,
   return s;
 }
 
-std::vector<Status> TitanDBImpl::MultiGet(
-    const ReadOptions& options, const std::vector<ColumnFamilyHandle*>& handles,
-    const std::vector<Slice>& keys, std::vector<std::string>* values) {
+std::vector<Status>
+TitanDBImpl::MultiGet(const ReadOptions &options,
+                      const std::vector<ColumnFamilyHandle *> &handles,
+                      const std::vector<Slice> &keys,
+                      std::vector<std::string> *values) {
   auto options_copy = options;
   options_copy.total_order_seek = true;
   if (options_copy.snapshot) {
@@ -696,9 +711,11 @@ std::vector<Status> TitanDBImpl::MultiGet(
   return MultiGetImpl(ro, handles, keys, values);
 }
 
-std::vector<Status> TitanDBImpl::MultiGetImpl(
-    const ReadOptions& options, const std::vector<ColumnFamilyHandle*>& handles,
-    const std::vector<Slice>& keys, std::vector<std::string>* values) {
+std::vector<Status>
+TitanDBImpl::MultiGetImpl(const ReadOptions &options,
+                          const std::vector<ColumnFamilyHandle *> &handles,
+                          const std::vector<Slice> &keys,
+                          std::vector<std::string> *values) {
   std::vector<Status> res;
   res.resize(keys.size());
   values->resize(keys.size());
@@ -713,8 +730,8 @@ std::vector<Status> TitanDBImpl::MultiGetImpl(
   return res;
 }
 
-Iterator* TitanDBImpl::NewIterator(const TitanReadOptions& options,
-                                   ColumnFamilyHandle* handle) {
+Iterator *TitanDBImpl::NewIterator(const TitanReadOptions &options,
+                                   ColumnFamilyHandle *handle) {
   TitanReadOptions options_copy = options;
   options_copy.total_order_seek = true;
   std::shared_ptr<ManagedSnapshot> snapshot;
@@ -727,10 +744,11 @@ Iterator* TitanDBImpl::NewIterator(const TitanReadOptions& options,
   return NewIteratorImpl(ro, handle, snapshot);
 }
 
-Iterator* TitanDBImpl::NewIteratorImpl(
-    const TitanReadOptions& options, ColumnFamilyHandle* handle,
-    std::shared_ptr<ManagedSnapshot> snapshot) {
-  auto cfd = reinterpret_cast<ColumnFamilyHandleImpl*>(handle)->cfd();
+Iterator *
+TitanDBImpl::NewIteratorImpl(const TitanReadOptions &options,
+                             ColumnFamilyHandle *handle,
+                             std::shared_ptr<ManagedSnapshot> snapshot) {
+  auto cfd = reinterpret_cast<ColumnFamilyHandleImpl *>(handle)->cfd();
 
   mutex_.Lock();
   auto storage = blob_file_set_->GetBlobStorage(handle->GetID()).lock();
@@ -741,18 +759,18 @@ Iterator* TitanDBImpl::NewIteratorImpl(
                     "Column family id:%" PRIu32 " not Found.", handle->GetID());
     return nullptr;
   }
-
   std::unique_ptr<ArenaWrappedDBIter> iter(db_impl_->NewIteratorImpl(
       options, cfd, options.snapshot->GetSequenceNumber(),
       nullptr /*read_callback*/, true /*allow_blob*/, true /*allow_refresh*/));
   return new TitanDBIterator(options, storage.get(), snapshot, std::move(iter),
-                             env_, stats_.get(), db_options_.info_log.get());
+                             env_, stats_.get(), db_options_.info_log.get(),
+                             this);
 }
 
-Status TitanDBImpl::NewIterators(
-    const TitanReadOptions& options,
-    const std::vector<ColumnFamilyHandle*>& handles,
-    std::vector<Iterator*>* iterators) {
+Status
+TitanDBImpl::NewIterators(const TitanReadOptions &options,
+                          const std::vector<ColumnFamilyHandle *> &handles,
+                          std::vector<Iterator *> *iterators) {
   TitanReadOptions ro(options);
   ro.total_order_seek = true;
   std::shared_ptr<ManagedSnapshot> snapshot;
@@ -762,28 +780,28 @@ Status TitanDBImpl::NewIterators(
   }
   iterators->clear();
   iterators->reserve(handles.size());
-  for (auto& handle : handles) {
+  for (auto &handle : handles) {
     iterators->emplace_back(NewIteratorImpl(ro, handle, snapshot));
   }
   return Status::OK();
 }
 
-const Snapshot* TitanDBImpl::GetSnapshot() { return db_->GetSnapshot(); }
+const Snapshot *TitanDBImpl::GetSnapshot() { return db_->GetSnapshot(); }
 
-void TitanDBImpl::ReleaseSnapshot(const Snapshot* snapshot) {
+void TitanDBImpl::ReleaseSnapshot(const Snapshot *snapshot) {
   // TODO:
   // We can record here whether the oldest snapshot is released.
   // If not, we can just skip the next round of purging obsolete files.
   db_->ReleaseSnapshot(snapshot);
 }
 
-Status TitanDBImpl::DeleteFilesInRanges(ColumnFamilyHandle* column_family,
-                                        const RangePtr* ranges, size_t n,
+Status TitanDBImpl::DeleteFilesInRanges(ColumnFamilyHandle *column_family,
+                                        const RangePtr *ranges, size_t n,
                                         bool include_end) {
   TablePropertiesCollection props;
-  auto cfh = reinterpret_cast<ColumnFamilyHandleImpl*>(column_family);
+  auto cfh = reinterpret_cast<ColumnFamilyHandleImpl *>(column_family);
   auto cfd = cfh->cfd();
-  Version* version = nullptr;
+  Version *version = nullptr;
 
   // Increment the ref count
   {
@@ -792,7 +810,7 @@ Status TitanDBImpl::DeleteFilesInRanges(ColumnFamilyHandle* column_family,
     version->Ref();
   }
 
-  auto* vstorage = version->storage_info();
+  auto *vstorage = version->storage_info();
   for (size_t i = 0; i < n; i++) {
     auto begin = ranges[i].start, end = ranges[i].limit;
     // Get all the files within range except L0, cause `DeleteFilesInRanges`
@@ -802,7 +820,7 @@ Status TitanDBImpl::DeleteFilesInRanges(ColumnFamilyHandle* column_family,
           !vstorage->OverlapInLevel(i, begin, end)) {
         continue;
       }
-      std::vector<FileMetaData*> level_files;
+      std::vector<FileMetaData *> level_files;
       InternalKey begin_storage, end_storage, *begin_key, *end_key;
       if (begin == nullptr) {
         begin_key = nullptr;
@@ -817,11 +835,11 @@ Status TitanDBImpl::DeleteFilesInRanges(ColumnFamilyHandle* column_family,
         end_key = &end_storage;
       }
 
-      std::vector<FileMetaData*> files;
+      std::vector<FileMetaData *> files;
       vstorage->GetCleanInputsWithinInterval(level, begin_key, end_key, &files,
                                              -1 /* hint_index */,
                                              nullptr /* file_index */);
-      for (const auto& file_meta : files) {
+      for (const auto &file_meta : files) {
         if (file_meta->being_compacted) {
           continue;
         }
@@ -855,8 +873,8 @@ Status TitanDBImpl::DeleteFilesInRanges(ColumnFamilyHandle* column_family,
 
   auto cf_id = column_family->GetID();
   std::map<uint64_t, uint64_t> blob_files_discardable_size;
-  for (auto& collection : props) {
-    auto& prop = collection.second;
+  for (auto &collection : props) {
+    auto &prop = collection.second;
     auto ucp_iter = prop->user_collected_properties.find(
         BlobFileSizeCollector::kPropertiesName);
     // this sst file doesn't contain any blob index
@@ -876,7 +894,7 @@ Status TitanDBImpl::DeleteFilesInRanges(ColumnFamilyHandle* column_family,
       continue;
     }
 
-    for (auto& it : sst_blob_files_size) {
+    for (auto &it : sst_blob_files_size) {
       blob_files_discardable_size[it.first] += it.second;
     }
   }
@@ -888,13 +906,15 @@ Status TitanDBImpl::DeleteFilesInRanges(ColumnFamilyHandle* column_family,
   // property field to TableFileDeletionInfo.
   Status s =
       db_impl_->DeleteFilesInRanges(column_family, ranges, n, include_end);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
 
   MutexLock l(&mutex_);
   SequenceNumber obsolete_sequence = db_impl_->GetLatestSequenceNumber();
   s = blob_file_set_->DeleteBlobFilesInRanges(cf_id, ranges, n, include_end,
                                               obsolete_sequence);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
 
   auto bs = blob_file_set_->GetBlobStorage(cf_id).lock();
   if (!bs) {
@@ -908,7 +928,7 @@ Status TitanDBImpl::DeleteFilesInRanges(ColumnFamilyHandle* column_family,
   uint64_t delta = 0;
   VersionEdit edit;
   auto cf_options = bs->cf_options();
-  for (const auto& bfs : blob_files_discardable_size) {
+  for (const auto &bfs : blob_files_discardable_size) {
     auto file = bs->FindFile(bfs.first).lock();
     if (!file) {
       // file has been gc out
@@ -953,28 +973,30 @@ Status TitanDBImpl::DeleteFilesInRanges(ColumnFamilyHandle* column_family,
 }
 
 void TitanDBImpl::MarkFileIfNeedMerge(
-    const std::vector<std::shared_ptr<BlobFileMeta>>& files,
+    const std::vector<std::shared_ptr<BlobFileMeta>> &files,
     int max_sorted_runs) {
   // std::cerr<<"if need merge?"<<files.size()<<"。"<<std::endl;
   mutex_.AssertHeld();
-  if (files.empty()) return;
+  if (files.empty())
+    return;
 
   // store and sort both ends of blob files to count sorted runs
-  std::vector<std::pair<BlobFileMeta*, bool /* is smallest end? */>> blob_ends;
-  for (const auto& file : files) {
+  std::vector<std::pair<BlobFileMeta *, bool /* is smallest end? */>> blob_ends;
+  for (const auto &file : files) {
     blob_ends.emplace_back(std::make_pair(file.get(), true));
     blob_ends.emplace_back(std::make_pair(file.get(), false));
   }
-  auto blob_ends_cmp = [](const std::pair<BlobFileMeta*, bool>& end1,
-                          const std::pair<BlobFileMeta*, bool>& end2) {
-    const std::string& key1 =
+  auto blob_ends_cmp = [](const std::pair<BlobFileMeta *, bool> &end1,
+                          const std::pair<BlobFileMeta *, bool> &end2) {
+    const std::string &key1 =
         end1.second ? end1.first->smallest_key() : end1.first->largest_key();
-    const std::string& key2 =
+    const std::string &key2 =
         end2.second ? end2.first->smallest_key() : end2.first->largest_key();
     int cmp = key1.compare(key2);
     // when the key being the same, order largest_key before smallest_key
-    if(cmp==0) {
-      return end1.first == end2.first? end1.second : (!end1.second && end2.second);
+    if (cmp == 0) {
+      return end1.first == end2.first ? end1.second
+                                      : (!end1.second && end2.second);
     }
     return cmp < 0;
   };
@@ -984,7 +1006,7 @@ void TitanDBImpl::MarkFileIfNeedMerge(
   int cur_remove = 0;
   int size = blob_ends.size();
   int marked = 0;
-  std::unordered_map<BlobFileMeta*, int> tmp;
+  std::unordered_map<BlobFileMeta *, int> tmp;
   for (int i = 0; i < size; i++) {
     if (blob_ends[i].second) {
       ++cur_add;
@@ -992,16 +1014,25 @@ void TitanDBImpl::MarkFileIfNeedMerge(
     } else {
       ++cur_remove;
       auto record = tmp.find(blob_ends[i].first);
-      if(record == tmp.end()){
-        std::cout<<"maybe bug in mark range merge\n";
+      if (record == tmp.end()) {
+        std::cout << "maybe bug in mark range merge\n";
         continue;
       }
+      auto overlap_degree = cur_add - record->second;
+      auto range_merge_score =
+          overlap_degree *
+          scan_range_monitor_->GetRangeOverlapDegree(record->first);
+      if (range_merge_score != 0)
+        std::cerr << "range merge score :" << range_merge_score << std::endl;
+      if (overlap_degree != 0)
+        std::cerr << "Sorted run count " << overlap_degree << std::endl;
       if (cur_add - record->second > max_sorted_runs &&
           record->first->file_state() != BlobFileMeta::FileState::kObsolete &&
           record->first->file_state() != BlobFileMeta::FileState::kToMerge &&
           record->first->file_state() != BlobFileMeta::FileState::kToGC) {
-        if(marked==0 && record->first->file_level()==0)
-        std::cerr<<"mark file level"<<record->first->file_level()<<std::endl;
+        if (marked == 0 && record->first->file_level() == 0)
+          std::cerr << "mark file level" << record->first->file_level()
+                    << std::endl;
         marked++;
         record->first->FileStateTransit(BlobFileMeta::FileEvent::kNeedMerge);
       }
@@ -1011,7 +1042,12 @@ void TitanDBImpl::MarkFileIfNeedMerge(
   range_merge_file.fetch_add(marked);
 }
 
-Options TitanDBImpl::GetOptions(ColumnFamilyHandle* column_family) const {
+void TitanDBImpl::SubmitRangeInfo(const RangeInfo &range_start,
+                                  const RangeInfo &range_end) {
+  scan_range_monitor_->AddRangeInfo(range_start);
+  scan_range_monitor_->AddRangeInfo(range_end);
+}
+Options TitanDBImpl::GetOptions(ColumnFamilyHandle *column_family) const {
   assert(column_family != nullptr);
   Options options = db_->GetOptions(column_family);
   uint32_t cf_id = column_family->GetID();
@@ -1030,15 +1066,15 @@ Options TitanDBImpl::GetOptions(ColumnFamilyHandle* column_family) const {
 }
 
 Status TitanDBImpl::SetOptions(
-    ColumnFamilyHandle* column_family,
-    const std::unordered_map<std::string, std::string>& new_options) {
+    ColumnFamilyHandle *column_family,
+    const std::unordered_map<std::string, std::string> &new_options) {
   Status s;
   auto opts = new_options;
   auto p = opts.find("blob_run_mode");
   bool set_blob_run_mode = (p != opts.end());
   TitanBlobRunMode mode = TitanBlobRunMode::kNormal;
   if (set_blob_run_mode) {
-    const std::string& blob_run_mode_string = p->second;
+    const std::string &blob_run_mode_string = p->second;
     auto pm = blob_run_mode_string_map.find(blob_run_mode_string);
     if (pm == blob_run_mode_string_map.end()) {
       return Status::InvalidArgument("No blob_run_mode defined for " +
@@ -1063,7 +1099,7 @@ Status TitanDBImpl::SetOptions(
     {
       MutexLock l(&mutex_);
       assert(cf_info_.count(cf_id) > 0);
-      TitanColumnFamilyInfo& cf_info = cf_info_[cf_id];
+      TitanColumnFamilyInfo &cf_info = cf_info_[cf_id];
       cf_info.titan_table_factory->SetBlobRunMode(mode);
       cf_info.mutable_cf_options.blob_run_mode = mode;
     }
@@ -1071,20 +1107,20 @@ Status TitanDBImpl::SetOptions(
   return Status::OK();
 }
 
-TitanOptions TitanDBImpl::GetTitanOptions(
-    ColumnFamilyHandle* column_family) const {
+TitanOptions
+TitanDBImpl::GetTitanOptions(ColumnFamilyHandle *column_family) const {
   assert(column_family != nullptr);
   Options base_options = GetOptions(column_family);
   TitanOptions titan_options;
-  *static_cast<TitanDBOptions*>(&titan_options) = db_options_;
-  *static_cast<DBOptions*>(&titan_options) =
+  *static_cast<TitanDBOptions *>(&titan_options) = db_options_;
+  *static_cast<DBOptions *>(&titan_options) =
       static_cast<DBOptions>(base_options);
   uint32_t cf_id = column_family->GetID();
   {
     MutexLock l(&mutex_);
     assert(cf_info_.count(cf_id) > 0);
-    const TitanColumnFamilyInfo& cf_info = cf_info_.at(cf_id);
-    *static_cast<TitanCFOptions*>(&titan_options) = TitanCFOptions(
+    const TitanColumnFamilyInfo &cf_info = cf_info_.at(cf_id);
+    *static_cast<TitanCFOptions *>(&titan_options) = TitanCFOptions(
         static_cast<ColumnFamilyOptions>(base_options),
         cf_info.immutable_cf_options, cf_info.mutable_cf_options);
   }
@@ -1094,12 +1130,12 @@ TitanOptions TitanDBImpl::GetTitanOptions(
 TitanDBOptions TitanDBImpl::GetTitanDBOptions() const {
   // Titan db_options_ is not mutable after DB open.
   TitanDBOptions result = db_options_;
-  *static_cast<DBOptions*>(&result) = db_impl_->GetDBOptions();
+  *static_cast<DBOptions *>(&result) = db_impl_->GetDBOptions();
   return result;
 }
 
-bool TitanDBImpl::GetProperty(ColumnFamilyHandle* column_family,
-                              const Slice& property, std::string* value) {
+bool TitanDBImpl::GetProperty(ColumnFamilyHandle *column_family,
+                              const Slice &property, std::string *value) {
   std::cout << "## write size ##\n";
   std::cout << "blob builder written bytes: " << bytes_written / 1000000.0
             << std::endl;
@@ -1126,10 +1162,10 @@ bool TitanDBImpl::GetProperty(ColumnFamilyHandle* column_family,
 
   std::cout << "\n## unsorted blob file build ##\n";
   std::cout << "builder wait flush: " << waitflush / 1000000.0 << std::endl;
-  std::cout << "blob add time; "
-            << foreground_blob_add_time / 1000000.0 << std::endl;
-  std::cout << "blob finish time: "
-            << foreground_blob_finish_time / 1000000.0 << std::endl;
+  std::cout << "blob add time; " << foreground_blob_add_time / 1000000.0
+            << std::endl;
+  std::cout << "blob finish time: " << foreground_blob_finish_time / 1000000.0
+            << std::endl;
 
   std::cout << "\n## blob file states in each level ##\n";
   blob_file_set_->PrintFileStates();
@@ -1150,8 +1186,8 @@ bool TitanDBImpl::GetProperty(ColumnFamilyHandle* column_family,
   }
 }
 
-bool TitanDBImpl::GetIntProperty(ColumnFamilyHandle* column_family,
-                                 const Slice& property, uint64_t* value) {
+bool TitanDBImpl::GetIntProperty(ColumnFamilyHandle *column_family,
+                                 const Slice &property, uint64_t *value) {
   assert(column_family != nullptr);
   bool s = false;
   if (stats_.get() != nullptr) {
@@ -1169,15 +1205,16 @@ bool TitanDBImpl::GetIntProperty(ColumnFamilyHandle* column_family,
 
 void TitanDBImpl::OnMemTableSealed() {
   if (db_options_.sep_before_flush) {
-    for (auto& builder : builders_) {
+    for (auto &builder : builders_) {
       builder.second.Flush();
     }
   }
 }
 
-void TitanDBImpl::OnFlushCompleted(const FlushJobInfo& flush_job_info) {
-  const auto& tps = flush_job_info.table_properties;
-  // std::cerr <<"file name"<<  flush_job_info.file_path<< "data size: "<< tps.data_size <<"index size: " << tps.index_size <<std::endl;
+void TitanDBImpl::OnFlushCompleted(const FlushJobInfo &flush_job_info) {
+  const auto &tps = flush_job_info.table_properties;
+  // std::cerr <<"file name"<<  flush_job_info.file_path<< "data size: "<<
+  // tps.data_size <<"index size: " << tps.index_size <<std::endl;
   auto ucp_iter = tps.user_collected_properties.find(
       BlobFileSizeCollector::kPropertiesName);
   // sst file doesn't contain any blob index
@@ -1210,7 +1247,7 @@ void TitanDBImpl::OnFlushCompleted(const FlushJobInfo& flush_job_info) {
       return;
     }
     uint64_t delta = 0;
-    for (const auto& f : blob_files_size) {
+    for (const auto &f : blob_files_size) {
       auto file = blob_storage->FindFile(f.first).lock();
       // This file maybe output of a gc job, and it's been GCed out.
       if (!file) {
@@ -1222,16 +1259,18 @@ void TitanDBImpl::OnFlushCompleted(const FlushJobInfo& flush_job_info) {
       uint64_t discardable = 0;
 
       if (file->discardable_size() == 0) {
-        discardable = file->file_size() - f.second -
-                                 kBlobHeaderSize - kBlobFooterSize;
+        discardable =
+            file->file_size() - f.second - kBlobHeaderSize - kBlobFooterSize;
       } else {
         discardable = -f.second;
       }
       delta += discardable;
-      SubStats(stats_.get(), flush_job_info.cf_id, TitanInternalStats::LIVE_BLOB_SIZE, delta);
+      SubStats(stats_.get(), flush_job_info.cf_id,
+               TitanInternalStats::LIVE_BLOB_SIZE, delta);
 
       file->AddDiscardableSize(discardable);
-      if (file->file_type() == kSorted) assert(file->discardable_size() == 0);
+      if (file->file_type() == kSorted)
+        assert(file->discardable_size() == 0);
       file->FileStateTransit(BlobFileMeta::FileEvent::kFlushCompleted);
     }
   }
@@ -1239,7 +1278,7 @@ void TitanDBImpl::OnFlushCompleted(const FlushJobInfo& flush_job_info) {
 }
 
 void TitanDBImpl::OnCompactionCompleted(
-    const CompactionJobInfo& compaction_job_info) {
+    const CompactionJobInfo &compaction_job_info) {
   if (!compaction_job_info.status.ok()) {
     // TODO: Clean up blob file generated by the failed compaction.
     return;
@@ -1248,9 +1287,9 @@ void TitanDBImpl::OnCompactionCompleted(
   std::map<uint64_t, int64_t> blob_files_size_diff;
   std::set<uint64_t> outputs;
   std::set<uint64_t> inputs;
-  auto calc_bfs = [&](const std::vector<std::string>& files, int coefficient,
+  auto calc_bfs = [&](const std::vector<std::string> &files, int coefficient,
                       bool output) {
-    for (const auto& file : files) {
+    for (const auto &file : files) {
       auto tp_iter = compaction_job_info.table_properties.find(file);
       if (tp_iter == compaction_job_info.table_properties.end()) {
         if (output) {
@@ -1280,7 +1319,7 @@ void TitanDBImpl::OnCompactionCompleted(
         assert(false);
         continue;
       }
-      for (const auto& input_bfs : input_blob_files_size) {
+      for (const auto &input_bfs : input_blob_files_size) {
         if (output) {
           if (inputs.find(input_bfs.first) == inputs.end()) {
             outputs.insert(input_bfs.first);
@@ -1313,7 +1352,7 @@ void TitanDBImpl::OnCompactionCompleted(
                       compaction_job_info.job_id, compaction_job_info.cf_id);
       return;
     }
-    for (const auto& file_number : outputs) {
+    for (const auto &file_number : outputs) {
       auto file = bs->FindFile(file_number).lock();
       if (!file) {
         // TODO: Should treat it as background error and make DB read-only.
@@ -1350,13 +1389,15 @@ void TitanDBImpl::OnCompactionCompleted(
         std::cerr << "no" << std::endl;
     }
     */
-    for (const auto& bfs : blob_files_size_diff) {
-      // std::cerr<<"total "<<blob_files_size_diff.size()<<"vtables in output level"<<compaction_job_info.output_level<<std::endl;
-      // blob file size < 0 means discardable size > 0
+    for (const auto &bfs : blob_files_size_diff) {
+      // std::cerr<<"total "<<blob_files_size_diff.size()<<"vtables in output
+      // level"<<compaction_job_info.output_level<<std::endl; blob file size < 0
+      // means discardable size > 0
       if (bfs.second >= 0) {
         if (count_sorted_run) {
           auto file = bs->FindFile(bfs.first).lock();
-          if (file != nullptr && file->file_type() == kSorted && (int)file->file_level()>=cf_options.num_levels-2) {
+          if (file != nullptr && file->file_type() == kSorted &&
+              (int)file->file_level() >= cf_options.num_levels - 2) {
             files.emplace_back(std::move(file));
           }
         }
@@ -1392,13 +1433,14 @@ void TitanDBImpl::OnCompactionCompleted(
                         cf_options.high_level_blob_discardable_ratio ||
                     (static_cast<int>(file->file_level()) >=
                          cf_options.num_levels - 2 &&*/
-                     file->GetDiscardableRatio() >
-                         cf_options.blob_file_discardable_ratio)) {
-          if(file->file_state() != BlobFileMeta::FileState::kToGC)
+                    file->GetDiscardableRatio() >
+                    cf_options.blob_file_discardable_ratio)) {
+          if (file->file_state() != BlobFileMeta::FileState::kToGC)
             mark++;
           file->FileStateTransit(BlobFileMeta::FileEvent::kNeedGC);
         }
-        if (count_sorted_run && file->file_type() == kSorted && (int)file->file_level()>=cf_options.num_levels-2) {
+        if (count_sorted_run && file->file_type() == kSorted &&
+            (int)file->file_level() >= cf_options.num_levels - 2) {
           files.emplace_back(std::move(file));
         }
       }
@@ -1415,23 +1457,29 @@ void TitanDBImpl::OnCompactionCompleted(
     // calculate total invalid ratio of blob files
     uint64_t live_size = 0;
     uint64_t total_size = 0;
-    GetIntProperty("rocksdb.titandb.live-blob-size",&live_size);
-    GetIntProperty("rocksdb.titandb.live-blob-file-size",&total_size);
-    // bool bg_gc = total_size>live_size&& (double)(total_size-live_size)/total_size > cf_options.blob_file_discardable_ratio; // trigger wisckey gc?
-    bool wisc_gc = !cf_options.level_merge && total_size > (uint64_t) (100+100*cf_options.blob_file_discardable_ratio)<<30;
-    bool bg_gc = cf_options.level_merge&&db_options_.sep_before_flush;
-    if(db_options_.block_write_size>0){
-    if(total_size>db_options_.block_write_size) {
-      block_for_size_.store(true);
-    } else if(block_for_size_.load()){
-      block_for_size_.store(false);
-      size_cv_.SignalAll();
-    }
+    GetIntProperty("rocksdb.titandb.live-blob-size", &live_size);
+    GetIntProperty("rocksdb.titandb.live-blob-file-size", &total_size);
+    // bool bg_gc = total_size>live_size&&
+    // (double)(total_size-live_size)/total_size >
+    // cf_options.blob_file_discardable_ratio; // trigger wisckey gc?
+    bool wisc_gc =
+        !cf_options.level_merge &&
+        total_size >
+            (uint64_t)(100 + 100 * cf_options.blob_file_discardable_ratio)
+                << 30;
+    bool bg_gc = cf_options.level_merge && db_options_.sep_before_flush;
+    if (db_options_.block_write_size > 0) {
+      if (total_size > db_options_.block_write_size) {
+        block_for_size_.store(true);
+      } else if (block_for_size_.load()) {
+        block_for_size_.store(false);
+        size_cv_.SignalAll();
+      }
     }
 
     if (wisc_gc || bg_gc) {
-      if (bs->ComputeGCScore() >
-          (1<<30) / cf_options.blob_file_target_size || block_for_size_.load()) {
+      if (bs->ComputeGCScore() > (1 << 30) / cf_options.blob_file_target_size ||
+          block_for_size_.load()) {
         AddToGCQueue(compaction_job_info.cf_id);
         MaybeScheduleGC();
       }
@@ -1440,14 +1488,15 @@ void TitanDBImpl::OnCompactionCompleted(
   gc_mark_file += mark;
 }
 
-Status TitanDBImpl::SetBGError(const Status& s) {
-  if (s.ok()) return s;
+Status TitanDBImpl::SetBGError(const Status &s) {
+  if (s.ok())
+    return s;
   mutex_.AssertHeld();
   Status bg_err = s;
   if (!db_options_.listeners.empty()) {
     // TODO(@jiayu) : check if mutex_ is freeable for future use case
     mutex_.Unlock();
-    for (auto& listener : db_options_.listeners) {
+    for (auto &listener : db_options_.listeners) {
       listener->OnBackgroundError(BackgroundErrorReason::kCompaction, &bg_err);
     }
     mutex_.Lock();
@@ -1466,8 +1515,8 @@ void TitanDBImpl::DumpStats() {
   LogBuffer log_buffer(InfoLogLevel::HEADER_LEVEL, db_options_.info_log.get());
   {
     MutexLock l(&mutex_);
-    for (auto& cf : cf_info_) {
-      TitanInternalStats* internal_stats = stats_->internal_stats(cf.first);
+    for (auto &cf : cf_info_) {
+      TitanInternalStats *internal_stats = stats_->internal_stats(cf.first);
       if (internal_stats == nullptr) {
         ROCKS_LOG_WARN(db_options_.info_log,
                        "Column family [%s] missing internal stats.",
@@ -1482,5 +1531,5 @@ void TitanDBImpl::DumpStats() {
   log_buffer.FlushBufferToLog();
 }
 
-}  // namespace titandb
-}  // namespace rocksdb
+} // namespace titandb
+} // namespace rocksdb

@@ -108,3 +108,10 @@ $ ./ycsbc -db diffkv -dbfilename #path -threads 16 -P workloads/workloadpareto1K
 # maxSortedRuns: equivalent to max_sorted_run in paper
 
 ```
+
+### Extend version
+1. Tiny SSTables in L0: L0 merge/Buffered KV separation (configure the option : intra_compact_small_l0)
+2. Dynamic lazy merge:Merge according to the ratio of deprecated data (Not done)
+3. Dynamic range merge: Monitor the degree of order and hotness within range query (configure the option : max_range_monitor_size)
+4. Tail latency. Control the scheduling of threads in rocksdb (Not done yet, can call the RocksDB::RasiseBackgroundThreads and RocksDB::ReduceBackgroundThreads)
+

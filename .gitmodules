@@ -1,3 +1,0 @@
-[submodule "dep/rocksdb"]
-	path = dep/rocksdb
-	url = git@github.com:ZacharyLiu-CS/rocksdb.git

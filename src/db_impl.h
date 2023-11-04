@@ -8,11 +8,14 @@
 #include "blob_file_set.h"
 #include "table_builder.h"
 #include "table_factory.h"
+#include "db_scan_monitor.h"
 #include "titan/db.h"
 #include "titan_stats.h"
 
 namespace rocksdb {
 namespace titandb {
+
+class TitanDBIterator;
 
 struct TitanColumnFamilyInfo {
   const std::string name;
@@ -22,122 +25,123 @@ struct TitanColumnFamilyInfo {
   std::shared_ptr<TitanTableFactory> titan_table_factory;
 };
 
+
 class TitanDBImpl : public TitanDB {
- public:
-  TitanDBImpl(const TitanDBOptions& options, const std::string& dbname);
+public:
+  TitanDBImpl(const TitanDBOptions &options, const std::string &dbname);
 
   ~TitanDBImpl();
 
-  Status Open(const std::vector<TitanCFDescriptor>& descs,
-              std::vector<ColumnFamilyHandle*>* handles);
+  Status Open(const std::vector<TitanCFDescriptor> &descs,
+              std::vector<ColumnFamilyHandle *> *handles);
 
   Status Close() override;
 
   using TitanDB::CreateColumnFamilies;
-  Status CreateColumnFamilies(
-      const std::vector<TitanCFDescriptor>& descs,
-      std::vector<ColumnFamilyHandle*>* handles) override;
+  Status
+  CreateColumnFamilies(const std::vector<TitanCFDescriptor> &descs,
+                       std::vector<ColumnFamilyHandle *> *handles) override;
 
-  Status DropColumnFamilies(
-      const std::vector<ColumnFamilyHandle*>& handles) override;
+  Status
+  DropColumnFamilies(const std::vector<ColumnFamilyHandle *> &handles) override;
 
-  Status DestroyColumnFamilyHandle(ColumnFamilyHandle* column_family) override;
+  Status DestroyColumnFamilyHandle(ColumnFamilyHandle *column_family) override;
 
   using TitanDB::CompactFiles;
-  Status CompactFiles(
-      const CompactionOptions& compact_options,
-      ColumnFamilyHandle* column_family,
-      const std::vector<std::string>& input_file_names, const int output_level,
-      const int output_path_id = -1,
-      std::vector<std::string>* const output_file_names = nullptr,
-      CompactionJobInfo* compaction_job_info = nullptr) override;
+  Status
+  CompactFiles(const CompactionOptions &compact_options,
+               ColumnFamilyHandle *column_family,
+               const std::vector<std::string> &input_file_names,
+               const int output_level, const int output_path_id = -1,
+               std::vector<std::string> *const output_file_names = nullptr,
+               CompactionJobInfo *compaction_job_info = nullptr) override;
 
   Status CloseImpl();
 
-  int Scan(const ReadOptions& options, const std::string& start_key, int len,
-           std::vector<std::string>& keys,
-           std::vector<std::string>& vals) override;
+  int Scan(const ReadOptions &options, const std::string &start_key, int len,
+           std::vector<std::string> &keys,
+           std::vector<std::string> &vals) override;
 
   using TitanDB::Put;
-  Status Put(const WriteOptions& options, ColumnFamilyHandle* column_family,
-             const Slice& key, const Slice& value) override;
+  Status Put(const WriteOptions &options, ColumnFamilyHandle *column_family,
+             const Slice &key, const Slice &value) override;
 
   using TitanDB::Write;
-  Status Write(const WriteOptions& options, WriteBatch* updates) override;
+  Status Write(const WriteOptions &options, WriteBatch *updates) override;
 
   using TitanDB::Delete;
-  Status Delete(const WriteOptions& options, ColumnFamilyHandle* column_family,
-                const Slice& key) override;
+  Status Delete(const WriteOptions &options, ColumnFamilyHandle *column_family,
+                const Slice &key) override;
 
   using TitanDB::IngestExternalFile;
-  Status IngestExternalFile(ColumnFamilyHandle* column_family,
-                            const std::vector<std::string>& external_files,
-                            const IngestExternalFileOptions& options) override;
+  Status IngestExternalFile(ColumnFamilyHandle *column_family,
+                            const std::vector<std::string> &external_files,
+                            const IngestExternalFileOptions &options) override;
 
   using TitanDB::CompactRange;
-  Status CompactRange(const CompactRangeOptions& options,
-                      ColumnFamilyHandle* column_family, const Slice* begin,
-                      const Slice* end) override;
+  Status CompactRange(const CompactRangeOptions &options,
+                      ColumnFamilyHandle *column_family, const Slice *begin,
+                      const Slice *end) override;
 
   using TitanDB::Flush;
-  Status Flush(const FlushOptions& fopts,
-               ColumnFamilyHandle* column_family) override;
+  Status Flush(const FlushOptions &fopts,
+               ColumnFamilyHandle *column_family) override;
 
   using TitanDB::Get;
-  Status Get(const ReadOptions& options, ColumnFamilyHandle* handle,
-             const Slice& key, PinnableSlice* value) override;
+  Status Get(const ReadOptions &options, ColumnFamilyHandle *handle,
+             const Slice &key, PinnableSlice *value) override;
 
   using TitanDB::MultiGet;
-  std::vector<Status> MultiGet(const ReadOptions& options,
-                               const std::vector<ColumnFamilyHandle*>& handles,
-                               const std::vector<Slice>& keys,
-                               std::vector<std::string>* values) override;
+  std::vector<Status> MultiGet(const ReadOptions &options,
+                               const std::vector<ColumnFamilyHandle *> &handles,
+                               const std::vector<Slice> &keys,
+                               std::vector<std::string> *values) override;
 
   using TitanDB::NewIterator;
-  Iterator* NewIterator(const TitanReadOptions& options,
-                        ColumnFamilyHandle* handle) override;
+  Iterator *NewIterator(const TitanReadOptions &options,
+                        ColumnFamilyHandle *handle) override;
 
   using TitanDB::NewIterators;
-  Status NewIterators(const TitanReadOptions& options,
-                      const std::vector<ColumnFamilyHandle*>& handles,
-                      std::vector<Iterator*>* iterators) override;
+  Status NewIterators(const TitanReadOptions &options,
+                      const std::vector<ColumnFamilyHandle *> &handles,
+                      std::vector<Iterator *> *iterators) override;
 
-  const Snapshot* GetSnapshot() override;
+  const Snapshot *GetSnapshot() override;
 
-  void ReleaseSnapshot(const Snapshot* snapshot) override;
+  void ReleaseSnapshot(const Snapshot *snapshot) override;
 
-  Status DeleteFilesInRanges(ColumnFamilyHandle* column_family,
-                             const RangePtr* ranges, size_t n,
+  Status DeleteFilesInRanges(ColumnFamilyHandle *column_family,
+                             const RangePtr *ranges, size_t n,
                              bool include_end = true) override;
 
   using TitanDB::GetOptions;
-  Options GetOptions(ColumnFamilyHandle* column_family) const override;
+  Options GetOptions(ColumnFamilyHandle *column_family) const override;
 
   using TitanDB::SetOptions;
   Status SetOptions(
-      ColumnFamilyHandle* column_family,
-      const std::unordered_map<std::string, std::string>& new_options) override;
+      ColumnFamilyHandle *column_family,
+      const std::unordered_map<std::string, std::string> &new_options) override;
 
   using TitanDB::GetTitanOptions;
-  TitanOptions GetTitanOptions(
-      ColumnFamilyHandle* column_family) const override;
+  TitanOptions
+  GetTitanOptions(ColumnFamilyHandle *column_family) const override;
 
   using TitanDB::GetTitanDBOptions;
   TitanDBOptions GetTitanDBOptions() const override;
 
   using TitanDB::GetProperty;
-  bool GetProperty(ColumnFamilyHandle* column_family, const Slice& property,
-                   std::string* value) override;
+  bool GetProperty(ColumnFamilyHandle *column_family, const Slice &property,
+                   std::string *value) override;
 
   using TitanDB::GetIntProperty;
-  bool GetIntProperty(ColumnFamilyHandle* column_family, const Slice& property,
-                      uint64_t* value) override;
+  bool GetIntProperty(ColumnFamilyHandle *column_family, const Slice &property,
+                      uint64_t *value) override;
 
   void OnMemTableSealed();
 
-  void OnFlushCompleted(const FlushJobInfo& flush_job_info);
+  void OnFlushCompleted(const FlushJobInfo &flush_job_info);
 
-  void OnCompactionCompleted(const CompactionJobInfo& compaction_job_info);
+  void OnCompactionCompleted(const CompactionJobInfo &compaction_job_info);
 
   void StartBackgroundTasks();
 
@@ -149,28 +153,30 @@ class TitanDBImpl : public TitanDB {
     return bg_gc_running_;
   }
 
- private:
+private:
   class FileManager;
   friend class FileManager;
   friend class BlobGCJobTest;
   friend class BaseDbListener;
   friend class TitanDBTest;
   friend class TitanThreadSafetyTest;
+  friend class TitanDBIterator;
 
-  Status ValidateOptions(
-      const TitanDBOptions& options,
-      const std::vector<TitanCFDescriptor>& column_families) const;
+  Status
+  ValidateOptions(const TitanDBOptions &options,
+                  const std::vector<TitanCFDescriptor> &column_families) const;
 
-  Status GetImpl(const ReadOptions& options, ColumnFamilyHandle* handle,
-                 const Slice& key, PinnableSlice* value);
+  Status GetImpl(const ReadOptions &options, ColumnFamilyHandle *handle,
+                 const Slice &key, PinnableSlice *value);
 
-  std::vector<Status> MultiGetImpl(
-      const ReadOptions& options,
-      const std::vector<ColumnFamilyHandle*>& handles,
-      const std::vector<Slice>& keys, std::vector<std::string>* values);
+  std::vector<Status>
+  MultiGetImpl(const ReadOptions &options,
+               const std::vector<ColumnFamilyHandle *> &handles,
+               const std::vector<Slice> &keys,
+               std::vector<std::string> *values);
 
-  Iterator* NewIteratorImpl(const TitanReadOptions& options,
-                            ColumnFamilyHandle* handle,
+  Iterator *NewIteratorImpl(const TitanReadOptions &options,
+                            ColumnFamilyHandle *handle,
                             std::shared_ptr<ManagedSnapshot> snapshot);
 
   // REQUIRE: mutex_ held
@@ -192,9 +198,9 @@ class TitanDBImpl : public TitanDB {
   // REQUIRE: mutex_ held
   void MaybeScheduleGC();
 
-  static void BGWorkGC(void* db);
+  static void BGWorkGC(void *db);
   void BackgroundCallGC();
-  Status BackgroundGC(LogBuffer* log_buffer, uint32_t column_family_id);
+  Status BackgroundGC(LogBuffer *log_buffer, uint32_t column_family_id);
 
   void PurgeObsoleteFiles();
   Status PurgeObsoleteFilesImpl();
@@ -204,7 +210,7 @@ class TitanDBImpl : public TitanDB {
     {
       // Need to lock DBImpl mutex before access snapshot list.
       InstrumentedMutexLock l(db_impl_->mutex());
-      auto& snapshots = db_impl_->snapshots();
+      auto &snapshots = db_impl_->snapshots();
       if (!snapshots.empty()) {
         oldest_snapshot = snapshots.oldest()->GetSequenceNumber();
       }
@@ -216,22 +222,24 @@ class TitanDBImpl : public TitanDB {
   bool HasPendingDropCFRequest(uint32_t cf_id);
 
   // REQUIRE: mutex_ held
-  Status SetBGError(const Status& s);
+  Status SetBGError(const Status &s);
 
   Status GetBGError() {
     MutexLock l(&mutex_);
     return bg_error_;
   }
 
-  void MarkFileIfNeedMerge(
-      const std::vector<std::shared_ptr<BlobFileMeta>>& files,
-      int max_sorted_runs);
+  void
+  MarkFileIfNeedMerge(const std::vector<std::shared_ptr<BlobFileMeta>> &files,
+                      int max_sorted_runs);
+
+  void SubmitRangeInfo(const RangeInfo &range_start, const RangeInfo & range_end);
 
   bool HasBGError() { return has_bg_error_.load(); }
 
   void DumpStats();
 
-  FileLock* lock_{nullptr};
+  FileLock *lock_{nullptr};
   // The lock sequence must be Titan.mutex_.Lock() -> Base DB mutex_.Lock()
   // while the unlock sequence must be Base DB mutex.Unlock() ->
   // Titan.mutex_.Unlock() Only if we all obey these sequence, we can prevent
@@ -245,9 +253,9 @@ class TitanDBImpl : public TitanDB {
 
   std::string dbname_;
   std::string dirname_;
-  Env* env_;
+  Env *env_;
   EnvOptions env_options_;
-  DBImpl* db_impl_;
+  DBImpl *db_impl_;
   TitanDBOptions db_options_;
   // Turn DB into read-only if background error happened
   Status bg_error_;
@@ -271,6 +279,7 @@ class TitanDBImpl : public TitanDB {
   std::unique_ptr<BlobFileSet> blob_file_set_;
   std::set<uint64_t> pending_outputs_;
   std::shared_ptr<BlobFileManager> blob_manager_;
+  std::unique_ptr<ScanRangeMonitor> scan_range_monitor_;
 
   // gc_queue_ hold column families that we need to gc.
   // pending_gc_ hold column families that already on gc_queue_.
@@ -291,5 +300,5 @@ class TitanDBImpl : public TitanDB {
   mutable port::Mutex size_mutex_;
 };
 
-}  // namespace titandb
-}  // namespace rocksdb
+} // namespace titandb
+} // namespace rocksdb

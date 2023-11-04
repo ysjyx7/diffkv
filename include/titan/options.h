@@ -40,6 +40,8 @@ struct TitanDBOptions : public DBOptions {
 
   bool sep_before_flush{false};
 
+  uint32_t max_range_monitor_size{1000};
+
   int num_foreground_builders{1};
 
   // block foreground write if blob size too large

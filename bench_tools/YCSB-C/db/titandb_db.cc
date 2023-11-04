@@ -7,8 +7,10 @@
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/cache.h"
 #include "leveldb_config.h"
+#include "rocksdb/iterator.h"
 #include "rocksdb/statistics.h"
 #include "rocksdb/flush_block_policy.h"
+#include "rocksdb_db.h"
 
 using namespace std;
 
@@ -26,6 +28,7 @@ namespace ycsbc {
         uint64_t blockWriteSize = config.getBlockWriteSize();
         //set optionssc
 
+        auto env = rocksdb::Env::Default();
         rocksdb::BlockBasedTableOptions bbto;
         options.create_if_missing = true;
         options.write_buffer_size = memtable;
@@ -96,9 +99,8 @@ namespace ycsbc {
         int i;
         int cnt = 0;
                      
-        auto it=db_->NewIterator(rocksdb::ReadOptions());
+        rocksdb::Iterator *it = db_->NewIterator(rocksdb::ReadOptions());
         it->Seek(key);
-	
         std::string val;
         std::string k;
         for(i=0;i<len&&it->Valid();i++){
@@ -108,7 +110,7 @@ namespace ycsbc {
             it->Next();
             if(val.size()==0) cnt++;
         }
-              
+        delete it;      
         return DB::kOK;
     }
 

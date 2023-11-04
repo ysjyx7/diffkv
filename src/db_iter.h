@@ -27,17 +27,25 @@ class TitanDBIterator : public Iterator {
   TitanDBIterator(const TitanReadOptions& options, BlobStorage* storage,
                   std::shared_ptr<ManagedSnapshot> snap,
                   std::unique_ptr<ArenaWrappedDBIter> iter, Env* env,
-                  TitanStats* stats, Logger* info_log)
+                  TitanStats* stats, Logger* info_log, TitanDBImpl *db_impl)
       : options_(options),
         storage_(storage),
         snap_(snap),
         iter_(std::move(iter)),
         env_(env),
         stats_(stats),
-        info_log_(info_log) {}
-  ~TitanDBIterator(){
-    std::cerr << "end of titandb iterator" << std::endl;
+        info_log_(info_log),
+        db_impl_(db_impl){}
+
+  virtual ~TitanDBIterator(){
+    range_end_.assign(iter_->key().ToString(), false);
+    if (db_impl_ == nullptr){
+      std::cerr <<"No db impl!" << std::endl;
+      return;
+    }
+    db_impl_->SubmitRangeInfo(range_start_, range_end_);
   }
+
   bool Valid() const override { return iter_->Valid(); /*&& status_.ok(); */ }
 
   Status status() const override {
@@ -68,6 +76,7 @@ class TitanDBIterator : public Iterator {
   }
 
   void Seek(const Slice& target) override {
+    range_start_.assign(target.ToString(), true) ;
     iter_->Seek(target);
     if (ShouldGetBlobValue()) {
       StopWatch seek_sw(env_, stats_, BLOB_DB_SEEK_MICROS);
@@ -288,6 +297,10 @@ void Scan(const Slice& target, int& len, std::vector<std::string>& keys,
   Env* env_;
   TitanStats* stats_;
   Logger* info_log_;
+  TitanDBImpl* db_impl_;
+  RangeInfo range_start_;
+  RangeInfo range_end_;
+
   static ThreadPool* pool_;
 };
 
