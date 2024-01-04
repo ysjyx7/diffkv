@@ -212,7 +212,7 @@ int main(const int argc, const char *argv[]) {
          << ops_time[ycsbc::SCAN] / ops_cnt[ycsbc::SCAN] / 1000 << "ms" << endl;
     if (props["dbname"] == "leveldb" || props["dbname"] == "vlog" ||
         props["dbname"] == "expdb" || props["dbname"] == "rocksdb" ||
-        props["dbname"] == "titandb" || props["dbname"] == "vtable") {
+        props["dbname"] == "titandb" || props["dbname"] == "vtable"  || props["dbname"] == "diffkv") {
       cout
           << "============================statistics==========================="
           << endl;
