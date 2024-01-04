@@ -17,12 +17,14 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/../../include
   ${PROJECT_SOURCE_DIR}/../../dep/rocksdb/include
   ${PROJECT_SOURCE_DIR}/../../dep/rocksdb
+  ${PROJECT_SOURCE_DIR}/../../../pebblesdb/src/include
   )
 
 #5. third path link path
 link_directories(
   ${PROJECT_SOURCE_DIR}/../../build
-  ${PROJECT_SOURCE_DIR}/../../build/rocksdb
+  ${PROJECT_SOURCE_DIR}/../../dep/rocksdb
+  ${PROJECT_SOURCE_DIR}/../../../pebblesdb/build
   )
 
 #6. source code file path
