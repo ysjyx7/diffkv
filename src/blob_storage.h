@@ -23,7 +23,7 @@ namespace rocksdb
       BlobStorage(const BlobStorage &bs) : destroyed_(false)
       {
         this->files_ = bs.files_;
-        this->all_files_ = bs.all_files_;
+        this->deleted_files_ = bs.deleted_files_;
         this->file_cache_ = bs.file_cache_;
         this->db_options_ = bs.db_options_;
         this->cf_options_ = bs.cf_options_;
@@ -178,7 +178,7 @@ namespace rocksdb
 
       // Only BlobStorage OWNS BlobFileMeta
       std::unordered_map<uint64_t, std::shared_ptr<BlobFileMeta>> files_;
-      std::unordered_map<uint64_t, std::shared_ptr<BlobFileMeta>> all_files_;
+      std::unordered_map<uint64_t, std::shared_ptr<BlobFileMeta>> deleted_files_;
 
       std::unordered_map<uint64_t, std::shared_ptr<RandomAccessFileReader>>
           building_files_;

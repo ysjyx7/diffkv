@@ -191,7 +191,6 @@ namespace rocksdb
     {
       std::unique_lock<std::mutex> l(mutex_);
       files_.emplace(std::make_pair(file->file_number(), file));
-      all_files_.emplace(std::make_pair(file->file_number(), file));
       blob_ranges_.emplace(std::make_pair(Slice(file->smallest_key()), file));
       AddStats(stats_, cf_id_, TitanInternalStats::LIVE_BLOB_FILE_SIZE,
                file->file_size());
@@ -278,6 +277,46 @@ namespace rocksdb
       if (file == files_.end())
       {
         return false;
+      }
+      deleted_files_.insert({file_number, file->second});
+      std::vector<std::vector<std::vector<uint64_t>>> discardable_ratio_time_level(cf_options_.num_levels);
+      if (deleted_files_.size() > 256)
+      {
+        for (auto &file : deleted_files_)
+        {
+          int level = file.second->file_level();
+          auto &discardable_ratio_time = file.second->discardable_time;
+          if (discardable_ratio_time.size() == 0)
+          {
+            std::cout << "discardable ratio time is empty: " << file.second->GetDiscardableRatio() << std::endl;
+            continue;
+          }
+          auto obsolete_time = discardable_ratio_time.back();
+          for (auto &t : discardable_ratio_time)
+          {
+            t = obsolete_time - t;
+          }
+          discardable_ratio_time.insert(discardable_ratio_time.begin(), obsolete_time);
+          discardable_ratio_time.pop_back();
+          discardable_ratio_time_level[level].push_back(discardable_ratio_time);
+        }
+        std::ofstream file;
+        file.open("discardable.txt", std::ios_base::app);
+        for (auto i = 0; i < cf_options_.num_levels; i++)
+        {
+          file << "level " << i << ": " << std::endl;
+          for (auto &discardable_ratio : discardable_ratio_time_level[i])
+          {
+            for (auto ratio : discardable_ratio)
+            {
+              file << static_cast<double>(ratio) * 1e-3 << ' ';
+            }
+            file << std::endl;
+          }
+          file << std::endl;
+        }
+        file.close();
+        deleted_files_.clear();
       }
       // Removes from blob_ranges_
       auto p = blob_ranges_.equal_range(file->second->smallest_key());
@@ -393,7 +432,7 @@ namespace rocksdb
       uint64_t discardable_unsorted = 0;
       uint64_t discardable_reach_unsorted = 0;
       std::vector<std::vector<std::shared_ptr<BlobFileMeta>>> files(cf_options_.num_levels);
-      for (auto &file : all_files_)
+      for (auto &file : deleted_files_)
       {
         int level = file.second->file_level();
         auto &discardable_ratio_time = file.second->discardable_time;
@@ -409,7 +448,7 @@ namespace rocksdb
         }
         discardable_ratio_time.insert(discardable_ratio_time.begin(), obsolete_time);
         discardable_ratio_time.pop_back();
-	      discardable_ratio_time_level[level].push_back(discardable_ratio_time);
+        discardable_ratio_time_level[level].push_back(discardable_ratio_time);
       }
       for (auto &file : files_)
       {
@@ -452,7 +491,7 @@ namespace rocksdb
       }
       std::cout << "~~~~~ overall ~~~~~\n";
       std::cout << "num blob files" << files_.size() << ", obsolete files in storage records:" << obsolete_files_.size() << std::endl;
-      std::ofstream file("discardable.txt");
+      std::ofstream file("discardable.txt", std::ios_base::app);
       for (int i = 0; i < cf_options_.num_levels; i++)
       {
         std::cout << "~~~~~ level " << i << " ~~~~~~\n";
@@ -472,15 +511,16 @@ namespace rocksdb
         for (auto ratio : discardable_ratio_level[i])
         {
           std::cout << ratio << " ";
-	} 
+        }
         std::cout << "]" << std::endl;
         file << "level " << i << std::endl;
         for (auto &discardable_time : discardable_ratio_time_level[i])
         {
-          if(discardable_time.size() == 10){ 
-	    file << "this file is deleted "; 
-	  }
-	  for (auto t : discardable_time)
+          if (discardable_time.size() == 10)
+          {
+            file << "this file is deleted ";
+          }
+          for (auto t : discardable_time)
           {
             file << (double)t * 1e-3 << ' ';
           }
@@ -564,22 +604,22 @@ namespace rocksdb
           }
         }
 
-        if (!cf_options_.level_merge)
-        {
-          std::sort(gc_score_.begin(), gc_score_.end(),
-                    [](const GCScore &first, const GCScore &second)
-                    {
-                      return first.file_number < second.file_number;
-                    });
-        }
-        else
-        {
-          std::sort(gc_score_.begin(), gc_score_.end(),
-                    [](const GCScore &first, const GCScore &second)
-                    {
-                      return first.score > second.score;
-                    });
-        }
+        // if (!cf_options_.level_merge)
+        // {
+        // std::sort(gc_score_.begin(), gc_score_.end(),
+        //           [](const GCScore &first, const GCScore &second)
+        //           {
+        //             return first.file_number < second.file_number;
+        //           });
+        // }
+        // else
+        // {
+        std::sort(gc_score_.begin(), gc_score_.end(),
+                  [](const GCScore &first, const GCScore &second)
+                  {
+                    return first.score > second.score;
+                  });
+        // }
       }
       compute_gc_score += start;
       return gc_score_.size();
