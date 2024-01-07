@@ -82,7 +82,7 @@ long ops_cnt[4] = {0};
 
 int DelegateClient(
     ycsbc::DB *db, ycsbc::CoreWorkload *wl, const int num_ops, bool is_loading,
-    std::map<ycsbc::Operation, shared_ptr<utils::Histogram>> &histogram) {
+    std::map<ycsbc::Operation, shared_ptr<utils::Histogram>> &histogram, int thread_id) {
   db->Init();
   ycsbc::Client client(*db, *wl);
   int oks = 0;
@@ -90,9 +90,9 @@ int DelegateClient(
   utils::Timer timer;
   for (int i = 0; i < num_ops; ++i) {
     timer.Start();
-    // if(i%10000==0){
-    //   cerr << "finished ops: "<<i<<"\r";
-    // }
+    if(i%100000==0){
+      cout <<"thread " << thread_id << " finished ops: "<<i<<"\r";
+    }
     if (is_loading) {
       operation_type = client.DoInsert();
       oks += 1;
@@ -174,7 +174,7 @@ int main(const int argc, const char *argv[]) {
     for (int i = 0; i < num_threads; ++i) {
       actual_ops.emplace_back(async(launch::async, DelegateClient, db, &wl,
                                     total_ops / num_threads, true,
-                                    std::ref(histogram)));
+                                    std::ref(histogram), i));
     }
     assert((int)actual_ops.size() == num_threads);
 
@@ -240,7 +240,7 @@ int main(const int argc, const char *argv[]) {
     for (int i = 0; i < num_threads; ++i) {
       actual_ops.emplace_back(async(launch::async, DelegateClient, db, &wl,
                                     total_ops / num_threads, false,
-                                    std::ref(histogram)));
+                                    std::ref(histogram), i));
     }
     assert((int)actual_ops.size() == num_threads);
 

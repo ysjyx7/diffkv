@@ -1632,11 +1632,19 @@ namespace rocksdb
           // std::cerr<<"after add "<<file->GetDiscardableRatio()<<std::endl;
           auto after = file->GetDiscardableRatioLevel();
           auto idx = file->discardable_time.size();
-          while (idx < discardable_ratio.size() && discardable_ratio[idx] >= 1 - file->GetDiscardableRatio())
-          {
-            file->discardable_time.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - file->start_timestamp);
-            idx++;
-          }
+          if(file->NoLiveData() && file->file_type() == kSorted) {
+	    while(idx < discardable_ratio.size()) {
+	      file->discardable_time.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - file->start_timestamp);
+              idx++;
+	    }
+	  }
+	  else if(!file->NoLiveData()){
+	    while (idx < discardable_ratio.size() && discardable_ratio[idx] > 1 - file->GetDiscardableRatio())
+            {
+              file->discardable_time.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - file->start_timestamp);
+              idx++;
+            }
+	  }
           if (before != after)
           {
             AddStats(stats_.get(), compaction_job_info.cf_id, after, 1);
@@ -1651,7 +1659,6 @@ namespace rocksdb
             if (file->NoLiveData() && file->file_type() == kSorted)
             {
               ROCKS_LOG_INFO(db_options_.info_log, "OnCompactionCompleted[%d], blob file is deleted: %d", compaction_job_info.cf_id, file->file_number());
-              file->discardable_time.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - file->start_timestamp);
               edit.DeleteBlobFile(file->file_number(),
                                   db_impl_->GetLatestSequenceNumber());
 

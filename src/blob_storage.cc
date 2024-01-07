@@ -408,7 +408,8 @@ namespace rocksdb
           t = obsolete_time - t;
         }
         discardable_ratio_time.insert(discardable_ratio_time.begin(), obsolete_time);
-        discardable_ratio_time_level[level].push_back(discardable_ratio_time);
+        discardable_ratio_time.pop_back();
+	      discardable_ratio_time_level[level].push_back(discardable_ratio_time);
       }
       for (auto &file : files_)
       {
@@ -467,18 +468,21 @@ namespace rocksdb
         std::cout << "] blob files" << std::endl;
         std::cout << "numBlobsolete files: " << numObsolete[i] << "\nnum need merge files: " << numNeedMerge[i] << "\nnum need gc files: " << numNeedGC[i] << "\ndiscardable size of need gc: " << gc_discardable_size[i] << "\ndiscardable size of need merge: " << merge_discardable_size[i] << "\ndiscardable size of no mark: " << nomark_discardable_size[i] << "." << std::endl;
         std::cout << "reach gc thresh but no mark:" << reach_without_mark[i] << std::endl;
-        //   std::cout << "level " << i << " discardable ratio: [";
-        //   for (auto ratio : discardable_ratio_level[i])
-        //   {
-        //     std::cout << ratio << ", ";
-        //   }
-        //   std::cout << "]" << std::endl;
+        std::cout << "level " << i << " discardable ratio: [";
+        for (auto ratio : discardable_ratio_level[i])
+        {
+          std::cout << ratio << " ";
+	} 
+        std::cout << "]" << std::endl;
         file << "level " << i << std::endl;
         for (auto &discardable_time : discardable_ratio_time_level[i])
         {
-          for (auto t : discardable_time)
+          if(discardable_time.size() == 10){ 
+	    file << "this file is deleted "; 
+	  }
+	  for (auto t : discardable_time)
           {
-            file << t << ',';
+            file << (double)t * 1e-3 << ' ';
           }
           file << std::endl;
         }
